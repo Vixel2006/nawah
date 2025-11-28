@@ -216,6 +216,26 @@ class Tensor:
                 f"Unsupported operand type(s) for -: 'Tensor' and '{type(other)}'"
             )
 
+    def abs(self) -> Tensor:
+        new_cpp_node = _plast_cpp_core.abs_op_node(self._cpp_node)
+        return Tensor(cpp_node=new_cpp_node)
+
+    def relu(self) -> Tensor:
+        new_cpp_node = _plast_cpp_core.relu_op_node(self._cpp_node)
+        return Tensor(cpp_node=new_cpp_node)
+
+    def lrelu(self, alpha: float) -> Tensor:
+        new_cpp_node = _plast_cpp_core.leaky_relu_op_node(self._cpp_node, alpha)
+        return Tensor(cpp_node=new_cpp_node)
+
+    def exp(self) -> Tensor:
+        new_cpp_node = _plast_cpp_core.exp_op_node(self._cpp_node)
+        return Tensor(cpp_node=new_cpp_node)
+
+    def log(self) -> Tensor:
+        new_cpp_node = _plast_cpp_core.log_op_node(self._cpp_node)
+        return Tensor(cpp_node=new_cpp_node)
+
     def __repr__(self) -> str:
         # For repr, we might not want to trigger full execution.
         # This would require the C++ Node to expose its inferred shape/dtype without execution.
@@ -239,7 +259,7 @@ class Tensor:
 # Example usage (for testing the Python side)
 if __name__ == "__main__":
     # Create some tensors on CPU
-    a_cpu = Tensor(data=[[1.0, 2.0], [3.0, 4.0]], dtype=np.float32, device="cpu")
+    a_cpu = Tensor(data=[[-1.0, 2.0], [3.0, 4.0]], dtype=np.float32, device="cpu")
     b_cpu = Tensor(data=[[5.0, 6.0], [7.0, 8.0]], dtype=np.float32, device="cpu")
 
     # Perform an operation on CPU
@@ -249,7 +269,7 @@ if __name__ == "__main__":
     print("Result of a_cpu + b_cpu:")
     print(c_cpu.data)
     print(f"Shape: {c_cpu.shape}, DType: {c_cpu.dtype}, Device: {c_cpu.device}")
-
+    print(a_cpu.lrelu(0.2).data)
     """
     # Create some tensors on CUDA
     a_cuda = Tensor(data=[[1.0, 2.0], [3.0, 4.0]], dtype=np.float32, device="cuda")

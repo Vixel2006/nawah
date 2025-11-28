@@ -9,9 +9,14 @@
 #include "plast/graph/node.h"
 #include "plast/ops/base_op.h"
 #include "plast/ops/binary/add.h"    // Example operation
-#include "plast/ops/binary/sub.h"    // Include for SubOperation
 #include "plast/ops/binary/mul.h"    // Include for MulOperation
+#include "plast/ops/binary/sub.h"    // Include for SubOperation
 #include "plast/ops/init/init_ops.h" // Include for new C++ initialization operations
+#include "plast/ops/unary/abs.h"     // Include for AbsOperation
+#include "plast/ops/unary/exp.h"     // Include for ExpOperation
+#include "plast/ops/unary/log.h"     // Include for LogOperation
+#include "plast/ops/unary/relu.h"    // Include for ReluOperation
+#include "plast/ops/unary/leaky_relu.h" // Include for LeakyReluOperation
 #include "plast/tensor/tensor.h"
 
 namespace py = pybind11;
@@ -154,6 +159,18 @@ PYBIND11_MODULE(_plast_cpp_core, m)
                std::shared_ptr<plast::ops::SubOperation>>(m, "SubOperation")
         .def(py::init<>());
 
+    py::class_<plast::ops::MulOperation, plast::ops::BaseOperation,
+               std::shared_ptr<plast::ops::MulOperation>>(m, "MulOperation")
+        .def(py::init<>());
+
+    py::class_<plast::ops::AbsOperation, plast::ops::BaseOperation,
+               std::shared_ptr<plast::ops::AbsOperation>>(m, "AbsOperation")
+        .def(py::init<>());
+
+    py::class_<plast::ops::LeakyReluOperation, plast::ops::BaseOperation,
+               std::shared_ptr<plast::ops::LeakyReluOperation>>(m, "LeakyReluOperation")
+        .def(py::init<float>(), py::arg("alpha") = 0.01f);
+
     // Bind ExecutionEngine class
     py::class_<plast::execution::ExecutionEngine>(m, "ExecutionEngine")
         .def(py::init<>())
@@ -217,4 +234,57 @@ PYBIND11_MODULE(_plast_cpp_core, m)
                 op, std::vector<std::shared_ptr<plast::graph::Node>>{lhs, rhs});
         },
         py::arg("lhs"), py::arg("rhs"));
+
+    // This function would be called from python's `plast.ops.abs`
+    m.def(
+        "abs_op_node",
+        [](std::shared_ptr<plast::graph::Node> input)
+        {
+            auto op = std::make_shared<plast::ops::AbsOperation>();
+            return std::make_shared<plast::graph::Node>(
+                op, std::vector<std::shared_ptr<plast::graph::Node>>{input});
+        },
+        py::arg("input"));
+
+    // This function would be called from python's `plast.ops.relu`
+    m.def(
+        "relu_op_node",
+        [](std::shared_ptr<plast::graph::Node> input)
+        {
+            auto op = std::make_shared<plast::ops::ReluOperation>();
+            return std::make_shared<plast::graph::Node>(
+                op, std::vector<std::shared_ptr<plast::graph::Node>>{input});
+        },
+        py::arg("input"));
+
+    // This function would be called from python's `plast.ops.leaky_relu`
+    m.def(
+        "leaky_relu_op_node",
+        [](std::shared_ptr<plast::graph::Node> input, float alpha)
+        {
+            auto op = std::make_shared<plast::ops::LeakyReluOperation>(alpha);
+            return std::make_shared<plast::graph::Node>(
+                op, std::vector<std::shared_ptr<plast::graph::Node>>{input});
+        },
+        py::arg("input"), py::arg("alpha") = 0.01f);
+
+    m.def(
+        "exp_op_node",
+        [](std::shared_ptr<plast::graph::Node> input)
+        {
+            auto op = std::make_shared<plast::ops::ExpOperation>();
+            return std::make_shared<plast::graph::Node>(
+                op, std::vector<std::shared_ptr<plast::graph::Node>>{input});
+        },
+        py::arg("input"));
+
+    m.def(
+        "log_op_node",
+        [](std::shared_ptr<plast::graph::Node> input)
+        {
+            auto op = std::make_shared<plast::ops::LogOperation>();
+            return std::make_shared<plast::graph::Node>(
+                op, std::vector<std::shared_ptr<plast::graph::Node>>{input});
+        },
+        py::arg("input"));
 }

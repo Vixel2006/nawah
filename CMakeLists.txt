@@ -40,13 +40,28 @@ add_library(plast_cpp_core_lib STATIC
     src/plast/ops/binary/add.cpp
     src/plast/ops/binary/sub.cpp
     src/plast/ops/binary/mul.cpp
+    src/plast/ops/unary/abs.cpp
+    src/plast/ops/unary/relu.cpp
+    src/plast/ops/unary/exp.cpp
+    src/plast/ops/unary/log.cpp
+    src/plast/ops/unary/leaky_relu.cpp
     src/plast/kernels/cuda/init_kernels.cu
     src/plast/kernels/cuda/add_kernels.cu
     src/plast/kernels/cuda/sub_kernels.cu
     src/plast/kernels/cuda/mul_kernels.cu
+    src/plast/kernels/cuda/abs_kernels.cu
+    src/plast/kernels/cuda/relu_kernels.cu
+    src/plast/kernels/cuda/exp_kernels.cu
+    src/plast/kernels/cuda/log_kernels.cu
+    src/plast/kernels/cuda/leaky_relu_kernels.cu
     src/plast/kernels/cpu/add_kernels.c
     src/plast/kernels/cpu/sub_kernels.c
     src/plast/kernels/cpu/mul_kernels.c
+    src/plast/kernels/cpu/abs_kernels.c
+    src/plast/kernels/cpu/relu_kernels.c
+    src/plast/kernels/cpu/exp_kernels.c
+    src/plast/kernels/cpu/log_kernels.c
+    src/plast/kernels/cpu/leaky_relu_kernels.c
     src/plast/ops/init/init.cpp
 )
 
