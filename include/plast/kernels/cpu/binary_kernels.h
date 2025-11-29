@@ -32,6 +32,12 @@ extern "C"
     void plast_cpu_mul_kernel_int32(int32_t* out, const int32_t* in1, const int32_t* in2,
                                     size_t num_elements);
 
+    void plast_cpu_matmul_kernel_float(float* out, const float* in1, const float* in2, const int B,
+                                       const int N, const int M, const int K);
+
+    void plast_cpu_matmul_kernel_int32(int32_t* out, const int32_t* in1, const int32_t* in2,
+                                       const int B, const int N, const int M, const int K);
+
 #ifdef __cplusplus
 }
 #endif

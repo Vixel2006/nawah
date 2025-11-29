@@ -224,6 +224,10 @@ class Tensor:
                 f"Unsupported operand type(s) for -: 'Tensor' and '{type(other)}'"
             )
 
+    def __matmul__(self, other: Tensor) -> Tensor:
+        new_cpp_node = _plast_cpp_core.matmul_op_node(self._cpp_node, other._cpp_node)
+        return Tensor(cpp_node=new_cpp_node)
+
     def abs(self) -> Tensor:
         new_cpp_node = _plast_cpp_core.abs_op_node(self._cpp_node)
         return Tensor(cpp_node=new_cpp_node)
@@ -295,6 +299,34 @@ class Tensor:
         new_cpp_node = _plast_cpp_core.unsqueeze_op_node(self._cpp_node, dim)
         return Tensor(cpp_node=new_cpp_node)
 
+    def expand(self, *new_shape: int) -> Tensor:
+        if not new_shape:
+            raise ValueError("Expand operation requires at least one dimension.")
+        
+        current_tensor = self
+        target_ndim = len(new_shape)
+        current_ndim = len(self.shape)
+
+        if target_ndim < current_ndim:
+            raise ValueError(
+                f"Cannot expand tensor from {current_ndim} dimensions to {target_ndim} dimensions. "
+                "Expand can only add new dimensions of size 1 or expand existing singleton dimensions."
+            )
+        
+        # Add new dimensions of size 1 at the front if target_ndim > current_ndim
+        for _ in range(target_ndim - current_ndim):
+            current_tensor = current_tensor.unsqueeze(0)
+        
+        # Now, current_tensor has the same number of dimensions as new_shape.
+        # We can use broadcast_to to expand existing singleton dimensions.
+        return current_tensor.broadcast_to(*new_shape)
+
+    def broadcast_to(self, *target_shape: int) -> Tensor:
+        if not target_shape:
+            raise ValueError("Broadcast operation requires at least one dimension.")
+        new_cpp_node = _plast_cpp_core.broadcast_op_node(self._cpp_node, list(target_shape))
+        return Tensor(cpp_node=new_cpp_node)
+
     def __repr__(self) -> str:
         # For repr, we might not want to trigger full execution.
         # This would require the C++ Node to expose its inferred shape/dtype without execution.
@@ -318,16 +350,21 @@ class Tensor:
 # Example usage (for testing the Python side)
 if __name__ == "__main__":
     # Create some tensors on CPU
-    a_cpu = Tensor(data=[[-1.0, 2.0], [3.0, 4.0]], dtype=np.float32, device="cpu")
+    a_cpu = Tensor(data=[[1.0, 2.0], [3.0, 4.0]], dtype=np.float32, device="cpu")
     b_cpu = Tensor(data=[[5.0, 6.0], [7.0, 8.0]], dtype=np.float32, device="cpu")
 
     # Perform an operation on CPU
-    c_cpu = b_cpu * a_cpu
+    c_cpu = a_cpu @ b_cpu
 
     # Access data (triggers execution)
-    print("Result of a_cpu + b_cpu:")
+    print("Result of a_cpu @ b_cpu:")
     print(c_cpu.data)
     print(f"Shape: {c_cpu.shape}, DType: {c_cpu.dtype}, Device: {c_cpu.device}")
-    print(b_cpu.transpose(0,1).data)
+    
+    # Example of expand: expand (2,2) to (1,2,2)
+    expanded_a = a_cpu.broadcast_to(2, 2, 2)
+    print("Result of a_cpu.expand(1, 2, 2):")
+    print(expanded_a.data)
+    print(f"Shape: {expanded_a.shape}, DType: {expanded_a.dtype}, Device: {expanded_a.device}")
 
     _execution_engine.clear_cache()

@@ -375,5 +375,13 @@ Tensor Tensor::reshape(const std::vector<size_t>& new_shape,
     return Tensor(data_, new_shape, new_strides, dtype_, device_, false);
 }
 
+Tensor Tensor::view(const std::vector<size_t>& new_shape,
+                    const std::vector<size_t>& new_strides) const
+{
+    // Create a new Tensor object that shares the same data pointer
+    // and does NOT own the data.
+    return Tensor(data_, new_shape, new_strides, dtype_, device_, false);
+}
+
 } // namespace tensor
 } // namespace plast

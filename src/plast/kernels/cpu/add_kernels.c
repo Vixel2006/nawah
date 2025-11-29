@@ -1,6 +1,4 @@
-#include "plast/kernels/cpu/binary_kernels.h" // For function declarations
-#undef __AVX512F__
-#undef __AVX512VL__
+#include "plast/kernels/cpu/binary_kernels.h"
 #include <immintrin.h>
 #include <math.h>
 #include <stddef.h>
