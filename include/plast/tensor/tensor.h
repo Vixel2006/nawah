@@ -64,6 +64,10 @@ class Tensor
     Tensor reshape(const std::vector<size_t>& new_shape,
                    const std::vector<size_t>& new_strides) const;
 
+    // View method for creating a new tensor with different shape/strides but same data
+    Tensor view(const std::vector<size_t>& new_shape,
+                const std::vector<size_t>& new_strides) const;
+
   private:
     void* data_;
     std::vector<size_t> shape_;

@@ -44,7 +44,6 @@ ExecutionEngine::topological_sort(std::shared_ptr<graph::Node> root_node)
     std::unordered_map<std::shared_ptr<graph::Node>, bool> in_stack;
 
     visit(root_node, visited, in_stack, sorted_nodes);
-    std::reverse(sorted_nodes.begin(), sorted_nodes.end());
     return sorted_nodes;
 }
 
@@ -55,17 +54,21 @@ tensor::Tensor ExecutionEngine::execute(std::shared_ptr<graph::Node> root_node)
         throw std::runtime_error("Cannot execute a null graph node.");
     }
 
-    // Clear cache before new execution if not already cleared
-    clear_cache();
-
     std::vector<std::shared_ptr<graph::Node>> sorted_nodes = topological_sort(root_node);
+
+    // Clear cached values for all NON-LEAF nodes in the current graph before execution
+    for (const auto& node : sorted_nodes)
+    {
+        if (!node->is_leaf())
+        {
+            node->clear_cached_value();
+        }
+    }
 
     for (const auto& node : sorted_nodes)
     {
         if (node->is_leaf())
         {
-            // Leaf nodes already have their value set in the constructor
-            // No computation needed, just ensure it's cached
             if (!node->has_cached_value())
             {
                 throw std::runtime_error(
@@ -89,8 +92,6 @@ tensor::Tensor ExecutionEngine::execute(std::shared_ptr<graph::Node> root_node)
         // Execute the operation
         if (inputs_for_op.empty())
         {
-            // Handle operations with no tensor inputs (e.g., constant creation, random init)
-            // For now, assume all ops have tensor inputs.
             throw std::runtime_error("Operation with no tensor inputs not yet supported.");
         }
 
@@ -101,9 +102,6 @@ tensor::Tensor ExecutionEngine::execute(std::shared_ptr<graph::Node> root_node)
         {
             if (inputs_for_op[i]->device() != target_device)
             {
-                // For now, throw error if inputs are on different devices.
-                // Later, implement automatic device transfer or more sophisticated device
-                // placement.
                 throw std::runtime_error("Inputs to an operation are on different devices. "
                                          "Automatic transfer not yet implemented.");
             }
@@ -135,12 +133,11 @@ tensor::Tensor ExecutionEngine::execute(std::shared_ptr<graph::Node> root_node)
 
 void ExecutionEngine::clear_cache()
 {
-    // This would ideally traverse the graph and clear all cached values.
-    // For now, we rely on the fact that `execute` will recompute everything
-    // and overwrite any old cached values. A more robust solution would
-    // involve iterating through all nodes reachable from the root and clearing their caches.
-    // This is a placeholder for a more complete implementation.
-    // For now, the `execute` method implicitly clears by recomputing.
+    // This method is now primarily a placeholder.
+    // The `execute` method ensures that cached values for the current graph
+    // are cleared at the beginning of each execution.
+    // If a global cache clear is needed for all known nodes (e.g., for memory management),
+    // a more sophisticated tracking mechanism would be required.
 }
 
 } // namespace execution

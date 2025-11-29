@@ -1,15 +1,16 @@
+#include <iostream>
 #include <memory>
 #include <pybind11/numpy.h>
 #include <pybind11/operators.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
-#include <iostream>
 
 #include "plast/core/types.h"
 #include "plast/execution/engine.h"
 #include "plast/graph/node.h"
 #include "plast/ops/base_op.h"
 #include "plast/ops/binary/add.h"
+#include "plast/ops/binary/matmul.h"
 #include "plast/ops/binary/mul.h"
 #include "plast/ops/binary/sub.h"
 #include "plast/ops/init/init_ops.h"
@@ -17,6 +18,8 @@
 #include "plast/ops/movement/transpose.h"
 #include "plast/ops/movement/unsqueeze.h"
 #include "plast/ops/movement/view.h"
+#include "plast/ops/movement/expand.h"
+#include "plast/ops/movement/broadcast.h"
 #include "plast/ops/unary/abs.h"
 #include "plast/ops/unary/exp.h"
 #include "plast/ops/unary/leaky_relu.h"
@@ -63,7 +66,8 @@ PYBIND11_MODULE(_plast_cpp_core, m)
         .def("to", &plast::tensor::Tensor::to, py::arg("target_device"))
         .def("clone", &plast::tensor::Tensor::clone)
         .def("reshape",
-             py::overload_cast<const std::vector<size_t>&>(&plast::tensor::Tensor::reshape, py::const_),
+             py::overload_cast<const std::vector<size_t>&>(&plast::tensor::Tensor::reshape,
+                                                           py::const_),
              py::arg("new_shape"))
         .def("reshape",
              py::overload_cast<const std::vector<size_t>&, const std::vector<size_t>&>(
@@ -141,9 +145,9 @@ PYBIND11_MODULE(_plast_cpp_core, m)
              [](const plast::tensor::Tensor& t)
              {
                  std::stringstream ss;
-                 ss << "Tensor(shape=" << py::cast(t.shape()) << ", strides=" << py::cast(t.strides())
-                    << ", dtype=" << py::cast(t.dtype()) << ", device=" << py::cast(t.device())
-                    << ")";
+                 ss << "Tensor(shape=" << py::cast(t.shape())
+                    << ", strides=" << py::cast(t.strides()) << ", dtype=" << py::cast(t.dtype())
+                    << ", device=" << py::cast(t.device()) << ")";
                  return ss.str();
              });
 
@@ -198,6 +202,14 @@ PYBIND11_MODULE(_plast_cpp_core, m)
     py::class_<plast::ops::UnsqueezeOperation, plast::ops::BaseOperation,
                std::shared_ptr<plast::ops::UnsqueezeOperation>>(m, "UnsqueezeOperation")
         .def(py::init<size_t>(), py::arg("dim"));
+
+    py::class_<plast::ops::ExpandOperation, plast::ops::BaseOperation,
+               std::shared_ptr<plast::ops::ExpandOperation>>(m, "ExpandOperation")
+        .def(py::init<const std::vector<size_t>&>(), py::arg("new_shape"));
+
+    py::class_<plast::ops::BroadcastOperation, plast::ops::BaseOperation,
+               std::shared_ptr<plast::ops::BroadcastOperation>>(m, "BroadcastOperation")
+        .def(py::init<const std::vector<size_t>&>(), py::arg("target_shape"));
 
     // Bind ExecutionEngine class
     py::class_<plast::execution::ExecutionEngine>(m, "ExecutionEngine")
@@ -258,6 +270,17 @@ PYBIND11_MODULE(_plast_cpp_core, m)
         [](std::shared_ptr<plast::graph::Node> lhs, std::shared_ptr<plast::graph::Node> rhs)
         {
             auto op = std::make_shared<plast::ops::MulOperation>();
+            return std::make_shared<plast::graph::Node>(
+                op, std::vector<std::shared_ptr<plast::graph::Node>>{lhs, rhs});
+        },
+        py::arg("lhs"), py::arg("rhs"));
+
+    // This function would be called from python's `plast.ops.matmul`
+    m.def(
+        "matmul_op_node",
+        [](std::shared_ptr<plast::graph::Node> lhs, std::shared_ptr<plast::graph::Node> rhs)
+        {
+            auto op = std::make_shared<plast::ops::MatmulOperation>();
             return std::make_shared<plast::graph::Node>(
                 op, std::vector<std::shared_ptr<plast::graph::Node>>{lhs, rhs});
         },
@@ -359,4 +382,26 @@ PYBIND11_MODULE(_plast_cpp_core, m)
                 op, std::vector<std::shared_ptr<plast::graph::Node>>{input});
         },
         py::arg("input"), py::arg("dim"));
+
+    // This function would be called from python's `plast.ops.expand`
+    m.def(
+        "expand_op_node",
+        [](std::shared_ptr<plast::graph::Node> input, const std::vector<size_t>& new_shape)
+        {
+            auto op = std::make_shared<plast::ops::ExpandOperation>(new_shape);
+            return std::make_shared<plast::graph::Node>(
+                op, std::vector<std::shared_ptr<plast::graph::Node>>{input});
+        },
+        py::arg("input"), py::arg("new_shape"));
+
+    // This function would be called from python's `plast.ops.broadcast_to`
+    m.def(
+        "broadcast_op_node",
+        [](std::shared_ptr<plast::graph::Node> input, const std::vector<size_t>& target_shape)
+        {
+            auto op = std::make_shared<plast::ops::BroadcastOperation>(target_shape);
+            return std::make_shared<plast::graph::Node>(
+                op, std::vector<std::shared_ptr<plast::graph::Node>>{input});
+        },
+        py::arg("input"), py::arg("target_shape"));
 }
