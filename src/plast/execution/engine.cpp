@@ -1,22 +1,16 @@
 #include "plast/execution/engine.h"
-#include <algorithm> // For std::reverse
-#include <iostream>  // For debugging
-#include <stdexcept> // For std::runtime_error
+#include <algorithm>
+#include <iostream>
+#include <stdexcept>
 
 namespace plast
 {
 namespace execution
 {
 
-ExecutionEngine::ExecutionEngine()
-{
-    // Constructor implementation if needed
-}
+ExecutionEngine::ExecutionEngine() {}
 
-ExecutionEngine::~ExecutionEngine()
-{
-    // Destructor implementation if needed
-}
+ExecutionEngine::~ExecutionEngine() {}
 
 void ExecutionEngine::visit(std::shared_ptr<graph::Node> node,
                             std::unordered_map<std::shared_ptr<graph::Node>, bool>& visited,

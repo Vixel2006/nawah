@@ -16,7 +16,7 @@ void plast_cpu_log_kernel_float(float* out, const float* in, size_t num_elements
     for (; i + SIMD_WIDTH - 1 < num_elements; i += SIMD_WIDTH)
     {
         __m256 x = _mm256_loadu_ps(in + i);
-        __m256 y = Sleef_logf8_u10avx2(x); // Use SLEEF's vectorized log
+        __m256 y = Sleef_logf8_u10avx2(x);
         _mm256_storeu_ps(out + i, y);
     }
 

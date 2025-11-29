@@ -1,22 +1,27 @@
 #include <memory>
-#include <pybind11/numpy.h>     // For py::array
-#include <pybind11/operators.h> // For operator overloading
+#include <pybind11/numpy.h>
+#include <pybind11/operators.h>
 #include <pybind11/pybind11.h>
-#include <pybind11/stl.h> // For std::vector, etc.
+#include <pybind11/stl.h>
+#include <iostream>
 
 #include "plast/core/types.h"
 #include "plast/execution/engine.h"
 #include "plast/graph/node.h"
 #include "plast/ops/base_op.h"
-#include "plast/ops/binary/add.h"    // Example operation
-#include "plast/ops/binary/mul.h"    // Include for MulOperation
-#include "plast/ops/binary/sub.h"    // Include for SubOperation
-#include "plast/ops/init/init_ops.h" // Include for new C++ initialization operations
-#include "plast/ops/unary/abs.h"     // Include for AbsOperation
-#include "plast/ops/unary/exp.h"     // Include for ExpOperation
-#include "plast/ops/unary/log.h"     // Include for LogOperation
-#include "plast/ops/unary/relu.h"    // Include for ReluOperation
-#include "plast/ops/unary/leaky_relu.h" // Include for LeakyReluOperation
+#include "plast/ops/binary/add.h"
+#include "plast/ops/binary/mul.h"
+#include "plast/ops/binary/sub.h"
+#include "plast/ops/init/init_ops.h"
+#include "plast/ops/movement/squeeze.h"
+#include "plast/ops/movement/transpose.h"
+#include "plast/ops/movement/unsqueeze.h"
+#include "plast/ops/movement/view.h"
+#include "plast/ops/unary/abs.h"
+#include "plast/ops/unary/exp.h"
+#include "plast/ops/unary/leaky_relu.h"
+#include "plast/ops/unary/log.h"
+#include "plast/ops/unary/relu.h"
 #include "plast/tensor/tensor.h"
 
 namespace py = pybind11;
@@ -52,10 +57,18 @@ PYBIND11_MODULE(_plast_cpp_core, m)
         .def(py::init<const std::vector<size_t>&, plast::core::DType, plast::core::DeviceType>(),
              py::arg("shape"), py::arg("dtype"), py::arg("device"))
         .def_property_readonly("shape", &plast::tensor::Tensor::shape)
+        .def_property_readonly("strides", &plast::tensor::Tensor::strides)
         .def_property_readonly("dtype", &plast::tensor::Tensor::dtype)
         .def_property_readonly("device", &plast::tensor::Tensor::device)
         .def("to", &plast::tensor::Tensor::to, py::arg("target_device"))
         .def("clone", &plast::tensor::Tensor::clone)
+        .def("reshape",
+             py::overload_cast<const std::vector<size_t>&>(&plast::tensor::Tensor::reshape, py::const_),
+             py::arg("new_shape"))
+        .def("reshape",
+             py::overload_cast<const std::vector<size_t>&, const std::vector<size_t>&>(
+                 &plast::tensor::Tensor::reshape, py::const_),
+             py::arg("new_shape"), py::arg("new_strides"))
         .def("num_elements", &plast::tensor::Tensor::num_elements)
         .def("nbytes", &plast::tensor::Tensor::nbytes)
         .def("data_ptr", &plast::tensor::Tensor::data) // Expose the raw data pointer
@@ -116,22 +129,21 @@ PYBIND11_MODULE(_plast_cpp_core, m)
                  }
 
                  // Calculate strides
-                 std::vector<py::ssize_t> strides(t.shape().size());
-                 py::ssize_t current_stride = itemsize;
-                 for (int i = t.shape().size() - 1; i >= 0; --i)
+                 std::vector<py::ssize_t> strides_bytes(t.strides().size());
+                 for (size_t i = 0; i < t.strides().size(); ++i)
                  {
-                     strides[i] = current_stride;
-                     current_stride *= t.shape()[i];
+                     strides_bytes[i] = t.strides()[i] * itemsize;
                  }
 
-                 return py::array(numpy_dtype, t.shape(), strides, t.data());
+                 return py::array(numpy_dtype, t.shape(), strides_bytes, t.data());
              })
         .def("__repr__",
              [](const plast::tensor::Tensor& t)
              {
                  std::stringstream ss;
-                 ss << "Tensor(shape=" << py::cast(t.shape()) << ", dtype=" << py::cast(t.dtype())
-                    << ", device=" << py::cast(t.device()) << ")";
+                 ss << "Tensor(shape=" << py::cast(t.shape()) << ", strides=" << py::cast(t.strides())
+                    << ", dtype=" << py::cast(t.dtype()) << ", device=" << py::cast(t.device())
+                    << ")";
                  return ss.str();
              });
 
@@ -170,6 +182,22 @@ PYBIND11_MODULE(_plast_cpp_core, m)
     py::class_<plast::ops::LeakyReluOperation, plast::ops::BaseOperation,
                std::shared_ptr<plast::ops::LeakyReluOperation>>(m, "LeakyReluOperation")
         .def(py::init<float>(), py::arg("alpha") = 0.01f);
+
+    py::class_<plast::ops::ViewOperation, plast::ops::BaseOperation,
+               std::shared_ptr<plast::ops::ViewOperation>>(m, "ViewOperation")
+        .def(py::init<const std::vector<size_t>&>(), py::arg("new_shape"));
+
+    py::class_<plast::ops::TransposeOperation, plast::ops::BaseOperation,
+               std::shared_ptr<plast::ops::TransposeOperation>>(m, "TransposeOperation")
+        .def(py::init<size_t, size_t>(), py::arg("N"), py::arg("M"));
+
+    py::class_<plast::ops::SqueezeOperation, plast::ops::BaseOperation,
+               std::shared_ptr<plast::ops::SqueezeOperation>>(m, "SqueezeOperation")
+        .def(py::init<size_t, size_t>(), py::arg("N"), py::arg("M"));
+
+    py::class_<plast::ops::UnsqueezeOperation, plast::ops::BaseOperation,
+               std::shared_ptr<plast::ops::UnsqueezeOperation>>(m, "UnsqueezeOperation")
+        .def(py::init<size_t>(), py::arg("dim"));
 
     // Bind ExecutionEngine class
     py::class_<plast::execution::ExecutionEngine>(m, "ExecutionEngine")
@@ -287,4 +315,48 @@ PYBIND11_MODULE(_plast_cpp_core, m)
                 op, std::vector<std::shared_ptr<plast::graph::Node>>{input});
         },
         py::arg("input"));
+
+    // This function would be called from python's `plast.ops.view`
+    m.def(
+        "view_op_node",
+        [](std::shared_ptr<plast::graph::Node> input, const std::vector<size_t>& new_shape)
+        {
+            auto op = std::make_shared<plast::ops::ViewOperation>(new_shape);
+            return std::make_shared<plast::graph::Node>(
+                op, std::vector<std::shared_ptr<plast::graph::Node>>{input});
+        },
+        py::arg("input"), py::arg("new_shape"));
+
+    // This function would be called from python's `plast.ops.transpose`
+    m.def(
+        "transpose_op_node",
+        [](std::shared_ptr<plast::graph::Node> input, size_t N, size_t M)
+        {
+            auto op = std::make_shared<plast::ops::TransposeOperation>(N, M);
+            return std::make_shared<plast::graph::Node>(
+                op, std::vector<std::shared_ptr<plast::graph::Node>>{input});
+        },
+        py::arg("input"), py::arg("N"), py::arg("M"));
+
+    // This function would be called from python's `plast.ops.squeeze`
+    m.def(
+        "squeeze_op_node",
+        [](std::shared_ptr<plast::graph::Node> input, size_t N, size_t M)
+        {
+            auto op = std::make_shared<plast::ops::SqueezeOperation>(N, M);
+            return std::make_shared<plast::graph::Node>(
+                op, std::vector<std::shared_ptr<plast::graph::Node>>{input});
+        },
+        py::arg("input"), py::arg("N"), py::arg("M"));
+
+    // This function would be called from python's `plast.ops.unsqueeze`
+    m.def(
+        "unsqueeze_op_node",
+        [](std::shared_ptr<plast::graph::Node> input, size_t dim)
+        {
+            auto op = std::make_shared<plast::ops::UnsqueezeOperation>(dim);
+            return std::make_shared<plast::graph::Node>(
+                op, std::vector<std::shared_ptr<plast::graph::Node>>{input});
+        },
+        py::arg("input"), py::arg("dim"));
 }

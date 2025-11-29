@@ -1,8 +1,7 @@
 #include "plast/kernels/cuda/binary_kernels.h"
 #include <cuda_runtime.h>
-#include <stdio.h> // For printf in error messages
+#include <stdio.h>
 
-// CUDA kernel for element-wise subtraction of float tensors (contiguous)
 __global__ void contig_sub_kernel_float(const float* a, const float* b, float* out, const int n)
 {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -12,7 +11,6 @@ __global__ void contig_sub_kernel_float(const float* a, const float* b, float* o
     }
 }
 
-// CUDA kernel for element-wise subtraction of int32_t tensors (contiguous)
 __global__ void contig_sub_kernel_int32(const int32_t* a, const int32_t* b, int32_t* out,
                                         const int n)
 {
@@ -23,7 +21,6 @@ __global__ void contig_sub_kernel_int32(const int32_t* a, const int32_t* b, int3
     }
 }
 
-// C-compatible wrapper for float subtraction
 extern "C" void plast_cuda_sub_kernel_float(float* out, const float* in1, const float* in2,
                                             size_t num_elements)
 {
@@ -38,7 +35,6 @@ extern "C" void plast_cuda_sub_kernel_float(float* out, const float* in1, const 
     }
 }
 
-// C-compatible wrapper for int32_t subtraction
 extern "C" void plast_cuda_sub_kernel_int32(int32_t* out, const int32_t* in1, const int32_t* in2,
                                             size_t num_elements)
 {

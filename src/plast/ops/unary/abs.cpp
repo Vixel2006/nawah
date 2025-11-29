@@ -1,18 +1,22 @@
 #include "plast/ops/unary/abs.h"
+#include "plast/core/device_management.h"
 #include "plast/core/types.h"
-#include "plast/core/device_management.h" // For PLAST_CUDA_CHECK
 #include "plast/kernels/cpu/unary_kernels.h"
 #include "plast/kernels/cuda/unary_kernels.h"
 
 #include <stdexcept>
 
-namespace plast {
-namespace ops {
+namespace plast
+{
+namespace ops
+{
 
-tensor::Tensor AbsOperation::execute_cpu(const std::vector<const tensor::Tensor*>& inputs) const {
+tensor::Tensor AbsOperation::execute_cpu(const std::vector<const tensor::Tensor*>& inputs) const
+{
     const tensor::Tensor& input = *inputs[0];
 
-    if (input.device() != core::DeviceType::CPU) {
+    if (input.device() != core::DeviceType::CPU)
+    {
         throw std::runtime_error("Input tensor must be on CPU for CPU execution.");
     }
 
@@ -23,26 +27,31 @@ tensor::Tensor AbsOperation::execute_cpu(const std::vector<const tensor::Tensor*
     tensor::Tensor output(input.shape(), dtype, core::DeviceType::CPU);
 
     // Dispatch to type-specific C CPU kernel
-    switch (dtype) {
-        case core::DType::FLOAT32:
-            plast_cpu_abs_kernel_float(output.data_as<float>(), input.data_as<const float>(), num_elements);
-            break;
-        case core::DType::INT32:
-            plast_cpu_abs_kernel_int32(output.data_as<int32_t>(), input.data_as<const int32_t>(), num_elements);
-            break;
-        // Add more types as needed
-        default:
-            throw std::runtime_error("Unsupported DType for Abs operation on CPU.");
+    switch (dtype)
+    {
+    case core::DType::FLOAT32:
+        plast_cpu_abs_kernel_float(output.data_as<float>(), input.data_as<const float>(),
+                                   num_elements);
+        break;
+    case core::DType::INT32:
+        plast_cpu_abs_kernel_int32(output.data_as<int32_t>(), input.data_as<const int32_t>(),
+                                   num_elements);
+        break;
+    // Add more types as needed
+    default:
+        throw std::runtime_error("Unsupported DType for Abs operation on CPU.");
     }
 
     return output;
 }
 
-tensor::Tensor AbsOperation::execute_cuda(const std::vector<const tensor::Tensor*>& inputs) const {
+tensor::Tensor AbsOperation::execute_cuda(const std::vector<const tensor::Tensor*>& inputs) const
+{
 #ifdef PLAST_CUDA_ENABLED
     const tensor::Tensor& input = *inputs[0];
 
-    if (input.device() != core::DeviceType::CUDA) {
+    if (input.device() != core::DeviceType::CUDA)
+    {
         throw std::runtime_error("Input tensor must be on CUDA for CUDA execution.");
     }
 
@@ -53,16 +62,19 @@ tensor::Tensor AbsOperation::execute_cuda(const std::vector<const tensor::Tensor
     tensor::Tensor output(input.shape(), dtype, core::DeviceType::CUDA);
 
     // Dispatch to type-specific CUDA kernel
-    switch (dtype) {
-        case core::DType::FLOAT32:
-            plast_cuda_abs_kernel_float(output.data_as<float>(), input.data_as<const float>(), num_elements);
-            break;
-        case core::DType::INT32:
-            plast_cuda_abs_kernel_int32(output.data_as<int32_t>(), input.data_as<const int32_t>(), num_elements);
-            break;
-        // Add more types as needed
-        default:
-            throw std::runtime_error("Unsupported DType for Abs operation on CUDA.");
+    switch (dtype)
+    {
+    case core::DType::FLOAT32:
+        plast_cuda_abs_kernel_float(output.data_as<float>(), input.data_as<const float>(),
+                                    num_elements);
+        break;
+    case core::DType::INT32:
+        plast_cuda_abs_kernel_int32(output.data_as<int32_t>(), input.data_as<const int32_t>(),
+                                    num_elements);
+        break;
+    // Add more types as needed
+    default:
+        throw std::runtime_error("Unsupported DType for Abs operation on CUDA.");
     }
 
     return output;

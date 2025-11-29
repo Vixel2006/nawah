@@ -1,12 +1,11 @@
 #include "plast/tensor/tensor.h"
-#include <iostream>
 #include "plast/core/types.h"
+#include <iostream>
 
-#include <cstring> // For std::memcpy
-#include <numeric> // For std::accumulate
+#include <cstring>
+#include <numeric>
 #include <stdexcept>
 
-// Include CUDA runtime for device memory management if CUDA is enabled
 #ifdef PLAST_CUDA_ENABLED
 #include <cuda_runtime.h>
 #endif
@@ -49,14 +48,37 @@ size_t get_dtype_size(core::DType dtype)
     }
 }
 
+// Helper to calculate contiguous strides
+std::vector<size_t> calculate_contiguous_strides(const std::vector<size_t>& shape)
+{
+    std::vector<size_t> strides(shape.size());
+    if (shape.empty())
+    {
+        return strides;
+    }
+    size_t stride = 1;
+    for (int i = shape.size() - 1; i >= 0; --i)
+    {
+        strides[i] = stride;
+        stride *= shape[i];
+    }
+    return strides;
+}
+
 // Constructor with existing data
-Tensor::Tensor(void* data, const std::vector<size_t>& shape, core::DType dtype,
-               core::DeviceType device, bool owns_data)
-    : data_(data), shape_(shape), dtype_(dtype), device_(device), owns_data_(owns_data)
+Tensor::Tensor(void* data, const std::vector<size_t>& shape, const std::vector<size_t>& strides,
+               core::DType dtype, core::DeviceType device, bool owns_data)
+    : data_(data), shape_(shape), strides_(strides), dtype_(dtype), device_(device),
+      owns_data_(owns_data)
 {
     if (shape_.empty())
     {
         shape_.push_back(1); // Scalar tensor
+        strides_.push_back(1);
+    }
+    if (shape_.size() != strides_.size())
+    {
+        throw std::runtime_error("Shape and strides must have the same number of dimensions.");
     }
 }
 
@@ -68,6 +90,7 @@ Tensor::Tensor(const std::vector<size_t>& shape, core::DType dtype, core::Device
     {
         shape_.push_back(1); // Scalar tensor
     }
+    strides_ = calculate_contiguous_strides(shape_);
     allocate_data();
 }
 
@@ -76,8 +99,8 @@ Tensor::~Tensor() { deallocate_data(); }
 
 // Move constructor
 Tensor::Tensor(Tensor&& other) noexcept
-    : data_(other.data_), shape_(std::move(other.shape_)), dtype_(other.dtype_),
-      device_(other.device_), owns_data_(other.owns_data_)
+    : data_(other.data_), shape_(std::move(other.shape_)), strides_(std::move(other.strides_)),
+      dtype_(other.dtype_), device_(other.device_), owns_data_(other.owns_data_)
 {
     other.data_ = nullptr;
     other.owns_data_ = false;
@@ -92,6 +115,7 @@ Tensor& Tensor::operator=(Tensor&& other) noexcept
 
         data_ = other.data_;
         shape_ = std::move(other.shape_);
+        strides_ = std::move(other.strides_);
         dtype_ = other.dtype_;
         device_ = other.device_;
         owns_data_ = other.owns_data_;
@@ -108,6 +132,25 @@ size_t Tensor::num_elements() const
 }
 
 size_t Tensor::nbytes() const { return num_elements() * get_dtype_size(dtype_); }
+
+bool Tensor::is_contiguous() const
+{
+    if (shape_.empty())
+    {
+        return true; // Scalar is contiguous
+    }
+
+    size_t expected_stride = 1;
+    for (int i = shape_.size() - 1; i >= 0; --i)
+    {
+        if (strides_[i] != expected_stride)
+        {
+            return false;
+        }
+        expected_stride *= shape_[i];
+    }
+    return true;
+}
 
 void Tensor::allocate_data()
 {
@@ -248,9 +291,88 @@ Tensor Tensor::to(core::DeviceType target_device) const
 
 Tensor Tensor::clone() const
 {
+    // Create a new contiguous tensor with the same shape, dtype, and device
     Tensor new_tensor(shape_, dtype_, device_);
-    new_tensor.copy_data_from(*this);
+
+    if (is_contiguous() && new_tensor.is_contiguous())
+    {
+        // If both are contiguous, a simple data copy is sufficient
+        new_tensor.copy_data_from(*this);
+    }
+    else
+    {
+        // If not contiguous, iterate through elements and copy them
+        size_t num_elements = this->num_elements();
+        size_t item_size = get_dtype_size(dtype_);
+
+        // Get raw pointers to data
+        char* src_data = static_cast<char*>(data_);
+        char* dst_data = static_cast<char*>(new_tensor.data_);
+
+        std::vector<size_t> current_coords(shape_.size(), 0);
+        for (size_t i = 0; i < num_elements; ++i)
+        {
+            size_t src_offset = 0;
+            for (size_t dim = 0; dim < shape_.size(); ++dim)
+            {
+                src_offset += current_coords[dim] * strides_[dim];
+            }
+
+            // Copy element from source to destination
+            std::memcpy(dst_data + i * item_size, src_data + src_offset * item_size, item_size);
+
+            // Increment coordinates for the next element
+            for (int dim = shape_.size() - 1; dim >= 0; --dim)
+            {
+                current_coords[dim]++;
+                if (current_coords[dim] < shape_[dim])
+                {
+                    break;
+                }
+                current_coords[dim] = 0;
+            }
+        }
+    }
     return new_tensor;
+}
+
+Tensor Tensor::reshape(const std::vector<size_t>& new_shape) const
+{
+    size_t new_num_elements =
+        std::accumulate(new_shape.begin(), new_shape.end(), 1ULL, std::multiplies<size_t>());
+    if (new_num_elements != num_elements())
+    {
+        throw std::runtime_error("Reshape operation requires the total number of elements to "
+                                 "remain constant.");
+    }
+
+    // Calculate new contiguous strides for the new shape
+    std::vector<size_t> new_strides = calculate_contiguous_strides(new_shape);
+
+    // Create a new Tensor that views the same data, but with a new shape and new strides.
+    // owns_data is set to false because the new tensor does not own the data.
+    return Tensor(data_, new_shape, new_strides, dtype_, device_, false);
+}
+
+Tensor Tensor::reshape(const std::vector<size_t>& new_shape,
+                       const std::vector<size_t>& new_strides) const
+{
+    size_t new_num_elements =
+        std::accumulate(new_shape.begin(), new_shape.end(), 1ULL, std::multiplies<size_t>());
+    if (new_num_elements != num_elements())
+    {
+        throw std::runtime_error("Reshape operation requires the total number of elements to "
+                                 "remain constant.");
+    }
+    if (new_shape.size() != new_strides.size())
+    {
+        throw std::runtime_error("New shape and new strides must have the same number of "
+                                 "dimensions for reshape.");
+    }
+
+    // Create a new Tensor that views the same data, but with a new shape and new strides.
+    // owns_data is set to false because the new tensor does not own the data.
+    return Tensor(data_, new_shape, new_strides, dtype_, device_, false);
 }
 
 } // namespace tensor

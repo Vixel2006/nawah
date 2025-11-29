@@ -45,6 +45,10 @@ add_library(plast_cpp_core_lib STATIC
     src/plast/ops/unary/exp.cpp
     src/plast/ops/unary/log.cpp
     src/plast/ops/unary/leaky_relu.cpp
+    src/plast/ops/movement/view.cpp 
+    src/plast/ops/movement/squeeze.cpp 
+    src/plast/ops/movement/unsqueeze.cpp 
+    src/plast/ops/movement/transpose.cpp 
     src/plast/kernels/cuda/init_kernels.cu
     src/plast/kernels/cuda/add_kernels.cu
     src/plast/kernels/cuda/sub_kernels.cu

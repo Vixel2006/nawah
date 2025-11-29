@@ -20,7 +20,8 @@ extern "C"
     void plast_cpu_relu_kernel_float(float* out, const float* in, size_t num_elements);
     void plast_cpu_relu_kernel_int32(int32_t* out, const int32_t* in, size_t num_elements);
 
-    void plast_cpu_leaky_relu_kernel_float(float* out, const float* in, size_t num_elements, float alpha);
+    void plast_cpu_leaky_relu_kernel_float(float* out, const float* in, size_t num_elements,
+                                           float alpha);
 
 #ifdef __cplusplus
 }

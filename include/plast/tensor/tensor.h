@@ -1,19 +1,23 @@
 #pragma once
 
+#include <memory>
+#include <numeric>
+#include <stdexcept>
 #include <vector>
-#include <memory> // For std::shared_ptr or std::unique_ptr
-#include <numeric> // For std::accumulate
-#include <stdexcept> // For std::runtime_error
 
 #include "plast/core/types.h"
 
-namespace plast {
-namespace tensor {
+namespace plast
+{
+namespace tensor
+{
 
-class Tensor {
-public:
+class Tensor
+{
+  public:
     // Constructors
-    Tensor(void* data, const std::vector<size_t>& shape, core::DType dtype, core::DeviceType device, bool owns_data = true);
+    Tensor(void* data, const std::vector<size_t>& shape, const std::vector<size_t>& strides,
+           core::DType dtype, core::DeviceType device, bool owns_data = true);
     // Constructor for empty tensor (e.g., for output allocation)
     Tensor(const std::vector<size_t>& shape, core::DType dtype, core::DeviceType device);
 
@@ -32,6 +36,7 @@ public:
     // Accessors
     void* data() const { return data_; }
     const std::vector<size_t>& shape() const { return shape_; }
+    const std::vector<size_t>& strides() const { return strides_; }
     core::DType dtype() const { return dtype_; }
     core::DeviceType device() const { return device_; }
     size_t num_elements() const;
@@ -44,17 +49,25 @@ public:
     Tensor clone() const;
 
     // Utility methods
-    template<typename T>
-    T* data_as() const {
-        if (sizeof(T) != nbytes() / num_elements()) {
+    bool is_contiguous() const;
+    template <typename T> T* data_as() const
+    {
+        if (sizeof(T) != nbytes() / num_elements())
+        {
             throw std::runtime_error("Data type mismatch for data_as() call.");
         }
         return static_cast<T*>(data_);
     }
 
-private:
+    // Reshape method
+    Tensor reshape(const std::vector<size_t>& new_shape) const;
+    Tensor reshape(const std::vector<size_t>& new_shape,
+                   const std::vector<size_t>& new_strides) const;
+
+  private:
     void* data_;
     std::vector<size_t> shape_;
+    std::vector<size_t> strides_;
     core::DType dtype_;
     core::DeviceType device_;
     bool owns_data_; // If true, Tensor manages data memory

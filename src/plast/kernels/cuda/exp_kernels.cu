@@ -13,7 +13,6 @@ __global__ void exp_cuda_kernel_float_kernel(float* out, const float* in, size_t
     }
 }
 
-// Wrapper function to launch the CUDA kernel for float
 extern "C" void plast_cuda_exp_kernel_float(float* out, const float* in, size_t num_elements)
 {
     int blockSize = 256;
@@ -25,4 +24,3 @@ extern "C" void plast_cuda_exp_kernel_float(float* out, const float* in, size_t 
         fprintf(stderr, "CUDA error in plast_cuda_exp_kernel_float: %s\n", cudaGetErrorString(err));
     }
 }
-

@@ -13,7 +13,8 @@ extern "C"
     void plast_cuda_relu_kernel_float(float* out, const float* in, size_t num_elements);
     void plast_cuda_exp_kernel_float(float* out, const float* in, size_t num_elements);
     void plast_cuda_log_kernel_float(float* out, const float* in, size_t num_elements);
-    void plast_cuda_leaky_relu_kernel_float(float* out, const float* in, size_t num_elements, float alpha);
+    void plast_cuda_leaky_relu_kernel_float(float* out, const float* in, size_t num_elements,
+                                            float alpha);
 
 #ifdef __cplusplus
 }

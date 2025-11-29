@@ -1,11 +1,11 @@
 #include "plast/ops/binary/mul.h"
-#include "plast/core/device_management.h" // For plast_CUDA_CHECK
+#include "plast/core/device_management.h"
 #include "plast/core/types.h"
 #include "plast/kernels/cpu/binary_kernels.h"
 #include "plast/kernels/cuda/binary_kernels.h"
 
-#include <cstring> // For std::memcpy
-#include <numeric> // For std::accumulate
+#include <cstring>
+#include <numeric>
 #include <stdexcept>
 
 namespace plast

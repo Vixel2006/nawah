@@ -13,7 +13,6 @@ __global__ void log_cuda_kernel_float_kernel(float* out, const float* in, size_t
     }
 }
 
-// Wrapper function to launch the CUDA kernel for float
 extern "C" void plast_cuda_log_kernel_float(float* out, const float* in, size_t num_elements)
 {
     int blockSize = 256;

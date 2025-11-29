@@ -6,11 +6,14 @@
 #include "plast/graph/node.h"
 #include "plast/tensor/tensor.h"
 
-namespace plast {
-namespace execution {
+namespace plast
+{
+namespace execution
+{
 
-class ExecutionEngine {
-public:
+class ExecutionEngine
+{
+  public:
     ExecutionEngine();
     ~ExecutionEngine();
 
@@ -20,9 +23,10 @@ public:
     // Clears the cached results of nodes after an execution run
     void clear_cache();
 
-private:
+  private:
     // Internal helper to perform topological sort
-    std::vector<std::shared_ptr<graph::Node>> topological_sort(std::shared_ptr<graph::Node> root_node);
+    std::vector<std::shared_ptr<graph::Node>>
+    topological_sort(std::shared_ptr<graph::Node> root_node);
 
     // Internal helper to recursively visit nodes for topological sort
     void visit(std::shared_ptr<graph::Node> node,

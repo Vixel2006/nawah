@@ -12,8 +12,7 @@ from ..core.device import Device, get_default_device
 _DTYPE_MAP = {
     np.float32: _plast_cpp_core.DType.FLOAT32,
     np.float64: _plast_cpp_core.DType.FLOAT64,
-    np.int8: _plast_cpp_core.DType.INT8,
-    np.int16: _plast_cpp_core.DType.INT16,
+    np.int8: _plast_cpp_core.DType.INT8, np.int16: _plast_cpp_core.DType.INT16,
     np.int32: _plast_cpp_core.DType.INT32,
     np.int64: _plast_cpp_core.DType.INT64,
     np.uint8: _plast_cpp_core.DType.UINT8,
@@ -154,6 +153,15 @@ class Tensor:
             return "cuda"
         return "unknown"
 
+    @property
+    def T(self) -> Tensor:
+        if len(self.shape) < 2:
+            raise ValueError("Transpose requires at least 2 dimensions.")
+        N = len(self.shape) - 2
+        M = len(self.shape) - 1
+        new_cpp_node = _plast_cpp_core.transpose_op_node(self._cpp_node, N, M)
+        return Tensor(cpp_node=new_cpp_node)
+
     def to(self, target_device_str: str) -> Tensor:
         # Execute the graph up to this node to get the concrete C++ Tensor
         cpp_tensor_value = _execution_engine.execute(self._cpp_node)
@@ -236,6 +244,57 @@ class Tensor:
         new_cpp_node = _plast_cpp_core.log_op_node(self._cpp_node)
         return Tensor(cpp_node=new_cpp_node)
 
+    def reshape(self, new_shape: Tuple[int, ...]) -> Tensor:
+        new_cpp_node = _plast_cpp_core.view_op_node(self._cpp_node, list(new_shape))
+        return Tensor(cpp_node=new_cpp_node)
+
+    def view(self, *shape: int) -> Tensor:
+        if not shape:
+            raise ValueError("View operation requires at least one dimension.")
+        new_shape = list(shape)
+        new_cpp_node = _plast_cpp_core.view_op_node(self._cpp_node, new_shape)
+        return Tensor(cpp_node=new_cpp_node)
+
+    def transpose(self, N: int, M: int) -> Tensor:
+        new_cpp_node = _plast_cpp_core.transpose_op_node(self._cpp_node, N, M)
+        return Tensor(cpp_node=new_cpp_node)
+
+    def squeeze(self, dim: Optional[int] = None) -> Tensor:
+        if dim is None:
+            # Squeeze all dimensions of size 1
+            current_shape = list(self.shape)
+            squeezed_dims = []
+            for i, s in enumerate(current_shape):
+                if s == 1:
+                    squeezed_dims.append(i)
+            
+            if not squeezed_dims:
+                return self # No dimensions to squeeze
+
+            # Apply squeeze iteratively for each dimension of size 1
+            result_tensor = self
+            # Squeeze from highest dimension to lowest to avoid index shifts
+            for d in sorted(squeezed_dims, reverse=True):
+                result_tensor = Tensor(cpp_node=_plast_cpp_core.squeeze_op_node(result_tensor._cpp_node, d, d)) # N and M are the same for squeeze
+            return result_tensor
+        else:
+            if dim < 0:
+                dim += len(self.shape)
+            if not (0 <= dim < len(self.shape)):
+                raise IndexError("Dimension out of range.")
+            if self.shape[dim] != 1:
+                return self # Cannot squeeze dimension of size > 1
+            new_cpp_node = _plast_cpp_core.squeeze_op_node(self._cpp_node, dim, dim) # N and M are the same for squeeze
+            return Tensor(cpp_node=new_cpp_node)
+
+    def unsqueeze(self, dim: int) -> Tensor:
+        if dim < 0:
+            dim += len(self.shape) + 1 # +1 because we are adding a dimension
+        if not (0 <= dim <= len(self.shape)):
+            raise IndexError("Dimension out of range.")
+        new_cpp_node = _plast_cpp_core.unsqueeze_op_node(self._cpp_node, dim)
+        return Tensor(cpp_node=new_cpp_node)
+
     def __repr__(self) -> str:
         # For repr, we might not want to trigger full execution.
         # This would require the C++ Node to expose its inferred shape/dtype without execution.
@@ -269,28 +328,6 @@ if __name__ == "__main__":
     print("Result of a_cpu + b_cpu:")
     print(c_cpu.data)
     print(f"Shape: {c_cpu.shape}, DType: {c_cpu.dtype}, Device: {c_cpu.device}")
-    print(a_cpu.lrelu(0.2).data)
-    """
-    # Create some tensors on CUDA
-    a_cuda = Tensor(data=[[1.0, 2.0], [3.0, 4.0]], dtype=np.float32, device="cuda")
-    b_cuda = Tensor(data=[[5.0, 6.0], [7.0, 8.0]], dtype=np.float32, device="cuda")
+    print(b_cpu.transpose(0,1).data)
 
-    # Perform an operation on CUDA
-    c_cuda = a_cuda + b_cuda
-
-    # Access data (triggers execution)
-    print("\nResult of a_cuda + b_cuda:")
-    print(c_cuda.data)
-    print(f"Shape: {c_cuda.shape}, DType: {c_cuda.dtype}, Device: {c_cuda.device}")
-    # Test device transfer and then add
-    a_cpu_to_cuda = a_cpu.to("cuda")
-    c_mixed_device = a_cpu_to_cuda + b_cuda
-    print("\nResult of (a_cpu.to('cuda')) + b_cuda:")
-    print(c_mixed_device.data)
-    print(
-        f"Shape: {c_mixed_device.shape}, DType: {c_mixed_device.dtype}, Device: {c_mixed_device.device}"
-    )
-    """
-
-    # Clear engine cache (if implemented)
     _execution_engine.clear_cache()

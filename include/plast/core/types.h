@@ -2,10 +2,13 @@
 
 #include <cstdint> // For int32_t, etc.
 
-namespace plast {
-namespace core {
+namespace plast
+{
+namespace core
+{
 
-enum class DType {
+enum class DType
+{
     UNKNOWN = 0,
     FLOAT32,
     FLOAT64,
@@ -20,7 +23,8 @@ enum class DType {
     BOOL
 };
 
-enum class DeviceType {
+enum class DeviceType
+{
     CPU = 0,
     CUDA
 };
