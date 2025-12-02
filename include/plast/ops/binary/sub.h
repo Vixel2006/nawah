@@ -4,6 +4,7 @@
 #include "plast/core/types.h"
 #include "plast/ops/base_op.h"
 #include "plast/tensor/tensor.h"
+#include "plast/core/shape_utils_cpp.h" // For core::broadcast_shapes
 #include <string>
 #include <vector>
 
