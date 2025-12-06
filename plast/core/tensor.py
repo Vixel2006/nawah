@@ -392,3 +392,9 @@ class Tensor:
         # C++ shared_ptr handles memory, so no explicit free needed here.
         pass
 
+if __name__ == "__main__":
+    a = Tensor(data=[[1, 2], [3, 4], [-5, 6], [7, -8]], dtype=np.float32, device="cuda")
+
+    b = a.max()
+    print(b.data)
+

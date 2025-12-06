@@ -3,6 +3,7 @@
 #include "plast/core/shape_utils_cpp.h" // Added for strided operations
 #include "plast/core/types.h"
 #include "plast/kernels/cpu/reduction_kernels.h"
+#include "plast/kernels/cuda/reduction_kernels.h"
 
 #include <cstring>
 #include <numeric>
@@ -136,8 +137,82 @@ tensor::Tensor MaxOperation::execute_cpu(const std::vector<const tensor::Tensor*
 tensor::Tensor MaxOperation::execute_cuda(const std::vector<const tensor::Tensor*>& inputs) const
 {
 #ifdef PLAST_CUDA_ENABLED
-    // TODO: Implement CUDA kernels for Max operation
-    throw std::runtime_error("CUDA Max operation not yet implemented.");
+    const tensor::Tensor& input = *inputs[0];
+    core::DType dtype = input.dtype();
+
+    // Determine output shape using the operation's infer_output_shape method
+    std::vector<size_t> output_shape_vec = infer_output_shape({input.shape()});
+
+    // Allocate output tensor
+    tensor::Tensor output(output_shape_vec, dtype, core::DeviceType::CUDA);
+
+    bool input_contiguous = input.is_contiguous();
+
+    // Dispatch to type-specific C CUDA kernel
+    switch (dtype)
+    {
+    case core::DType::FLOAT32:
+        if (full_reduction_)
+        {
+            if (input_contiguous)
+            {
+                plast_cuda_max_full_reduction_float(input.data_as<const float>(),
+                                                    output.data_as<float>(), input.shape().data(),
+                                                    input.shape().size());
+            }
+            else
+            {
+                throw std::runtime_error(
+                    "CUDA Max full reduction strided float operation not yet implemented.");
+            }
+        }
+        else
+        {
+            if (input_contiguous)
+            {
+                throw std::runtime_error(
+                    "CUDA Max reduction dim float operation not yet implemented.");
+            }
+            else
+            {
+                throw std::runtime_error(
+                    "CUDA Max reduction dim strided float operation not yet implemented.");
+            }
+        }
+        break;
+    case core::DType::INT32:
+        if (full_reduction_)
+        {
+            if (input_contiguous)
+            {
+                throw std::runtime_error(
+                    "CUDA Max full reduction int32 operation not yet implemented.");
+            }
+            else
+            {
+                throw std::runtime_error(
+                    "CUDA Max full reduction strided int32 operation not yet implemented.");
+            }
+        }
+        else
+        {
+            if (input_contiguous)
+            {
+                throw std::runtime_error(
+                    "CUDA Max reduction dim int32 operation not yet implemented.");
+            }
+            else
+            {
+                throw std::runtime_error(
+                    "CUDA Max reduction dim strided int32 operation not yet implemented.");
+            }
+        }
+        break;
+    default:
+        throw std::runtime_error("Unsupported DType for Max operation on CUDA.");
+    }
+
+    return output;
 #else
     throw std::runtime_error("CUDA is not enabled. Cannot execute Max operation on CUDA device.");
 #endif

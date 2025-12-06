@@ -13,6 +13,9 @@ extern "C"
     // Function to increment multi-dimensional indices based on the shape.
     void increment_indices(size_t* current_indices, const size_t* shape, size_t ndim);
 
+    // Function to calculate the total number of elements from a shape array.
+    size_t get_total_elements(const size_t* shape, size_t ndim);
+
 #ifdef __cplusplus
 }
 #endif

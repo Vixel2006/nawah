@@ -128,6 +128,16 @@ void increment_indices(size_t* current_indices, const size_t* shape, size_t ndim
     }
 }
 
+size_t get_total_elements(const size_t* shape, size_t ndim)
+{
+    size_t total_elements = 1;
+    for (size_t i = 0; i < ndim; ++i)
+    {
+        total_elements *= shape[i];
+    }
+    return total_elements;
+}
+
 namespace plast
 {
 namespace core

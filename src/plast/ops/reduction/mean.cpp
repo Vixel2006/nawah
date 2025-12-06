@@ -3,6 +3,7 @@
 #include "plast/core/shape_utils_cpp.h" // Added for strided operations
 #include "plast/core/types.h"
 #include "plast/kernels/cpu/reduction_kernels.h"
+#include "plast/kernels/cuda/reduction_kernels.h"
 
 #include <cstring>
 #include <numeric>
@@ -135,8 +136,113 @@ tensor::Tensor MeanOperation::execute_cpu(const std::vector<const tensor::Tensor
 tensor::Tensor MeanOperation::execute_cuda(const std::vector<const tensor::Tensor*>& inputs) const
 {
 #ifdef PLAST_CUDA_ENABLED
-    // TODO: Implement CUDA kernels for Mean operation
-    throw std::runtime_error("CUDA Mean operation not yet implemented.");
+    const tensor::Tensor& input = *inputs[0];
+    core::DType dtype = input.dtype();
+
+    // Determine output shape using the operation's infer_output_shape method
+    std::vector<size_t> output_shape_vec = infer_output_shape({input.shape()});
+
+    // Allocate output tensor
+    tensor::Tensor output(output_shape_vec, dtype, core::DeviceType::CUDA);
+
+    bool input_contiguous = input.is_contiguous();
+
+    size_t* input_strides = nullptr;
+    size_t* output_shape_arr = nullptr;
+
+    if (!input_contiguous)
+    {
+        std::vector<size_t> input_strides_vec =
+            core::get_effective_broadcast_strides(input.shape(), input.strides(), input.shape());
+        input_strides = new size_t[input_strides_vec.size()];
+        for (size_t i = 0; i < input_strides_vec.size(); ++i)
+        {
+            input_strides[i] = input_strides_vec[i];
+        }
+
+        output_shape_arr = new size_t[output.ndim()];
+        for (size_t i = 0; i < output.ndim(); ++i)
+        {
+            output_shape_arr[i] = output.shape()[i];
+        }
+    }
+
+    // Dispatch to type-specific C CUDA kernel
+    switch (dtype)
+    {
+    case core::DType::FLOAT32:
+        if (full_reduction_)
+        {
+            if (input_contiguous)
+            {
+                plast_cuda_mean_full_reduction_float(input.data_as<const float>(),
+                                                     output.data_as<float>(), input.shape().data(),
+                                                     input.shape().size());
+            }
+            else
+            {
+                throw std::runtime_error(
+                    "CUDA Mean full reduction strided float operation not yet implemented.");
+            }
+        }
+        else
+        {
+            if (input_contiguous)
+            {
+                throw std::runtime_error(
+                    "CUDA Mean reduction dim float operation not yet implemented.");
+            }
+            else
+            {
+                throw std::runtime_error(
+                    "CUDA Mean reduction dim strided float operation not yet implemented.");
+            }
+        }
+        break;
+    case core::DType::INT32:
+        if (full_reduction_)
+        {
+            if (input_contiguous)
+            {
+                throw std::runtime_error(
+                    "CUDA Mean full reduction int32 operation not yet implemented.");
+            }
+            else
+            {
+                throw std::runtime_error(
+                    "CUDA Mean full reduction strided int32 operation not yet implemented.");
+            }
+        }
+        else
+        {
+            if (input_contiguous)
+            {
+                throw std::runtime_error(
+                    "CUDA Mean reduction dim int32 operation not yet implemented.");
+            }
+            else
+            {
+                throw std::runtime_error(
+                    "CUDA Mean reduction dim strided int32 operation not yet implemented.");
+            }
+        }
+        break;
+    default:
+        if (!input_contiguous)
+        {
+            delete[] input_strides;
+            delete[] output_shape_arr;
+        }
+        throw std::runtime_error("Unsupported DType for Mean operation on CUDA.");
+    }
+
+    if (!input_contiguous)
+    {
+        delete[] input_strides;
+        delete[] output_shape_arr;
+    }
+
+    return output;
 #else
     throw std::runtime_error("CUDA is not enabled. Cannot execute Mean operation on CUDA device.");
 #endif

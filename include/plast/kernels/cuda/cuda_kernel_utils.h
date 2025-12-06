@@ -2,6 +2,8 @@
 
 #include <stddef.h>
 
+#define MAX_NDIM 8 // Maximum number of dimensions for tensors
+
 #ifdef __cplusplus
 extern "C"
 {
