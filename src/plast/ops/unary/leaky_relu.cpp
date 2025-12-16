@@ -96,5 +96,12 @@ LeakyReluOperation::execute_cuda(const std::vector<const tensor::Tensor*>& input
 #endif
 }
 
+void LeakyReluOperation::backward(const tensor::Tensor& grad_output,
+                                  const tensor::Tensor& output,
+                                  std::vector<tensor::Tensor*>& inputs) const
+{
+    throw std::runtime_error("Not implemented");
+}
+
 } // namespace ops
 } // namespace plast

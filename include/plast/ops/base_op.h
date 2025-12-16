@@ -31,8 +31,10 @@ class BaseOperation
     // Execute the operation on CUDA
     virtual tensor::Tensor execute_cuda(const std::vector<const tensor::Tensor*>& inputs) const = 0;
 
-    // For autograd: compute gradients (placeholder for now)
-    // virtual std::vector<tensor::Tensor> compute_gradients(...) = 0;
+    // For autograd: compute gradients
+    virtual void backward(const tensor::Tensor& grad_output,
+                        const tensor::Tensor& output,
+                        std::vector<tensor::Tensor*>& inputs) const = 0;
 };
 
 } // namespace ops

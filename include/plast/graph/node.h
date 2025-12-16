@@ -33,6 +33,8 @@ class Node
     bool has_output_tensor() const;
     void clear_output_tensor();
 
+    std::vector<tensor::Tensor*> get_inputs_as_raw_pointers();
+
   private:
     std::shared_ptr<ops::BaseOperation> op_;
     std::vector<std::shared_ptr<Node>> inputs_;
