@@ -10,6 +10,12 @@
 
 namespace plast
 {
+
+namespace graph
+{
+class Node; // Forward declaration
+}
+
 namespace tensor
 {
 
@@ -30,7 +36,7 @@ class Tensor
            const std::vector<size_t>& strides, core::DType dtype);
 
     // Destructor (shared_ptr handles DataBuffer deallocation)
-    ~Tensor() = default;
+    ~Tensor();
 
     // Delete copy constructor and assignment operator to prevent accidental deep copies
     // For explicit copies, use the .clone() method
@@ -76,11 +82,26 @@ class Tensor
     // View method for creating a new tensor with different shape/strides but same data
     Tensor view(const std::vector<size_t>& new_shape, const std::vector<size_t>& new_strides) const;
 
+    // Autograd methods
+    bool requires_grad() const { return requires_grad_; }
+    void set_requires_grad(bool requires_grad) { requires_grad_ = requires_grad; }
+    Tensor* grad() { return grad_.get(); }
+    const Tensor* grad() const { return grad_.get(); }
+    void set_grad(std::shared_ptr<Tensor> grad) { grad_ = grad; }
+    std::shared_ptr<graph::Node> grad_fn() const { return grad_fn_; }
+    void set_grad_fn(std::shared_ptr<graph::Node> grad_fn) { grad_fn_ = grad_fn; }
+    void backward();
+
   private:
     std::shared_ptr<core::DataBuffer> buffer_;
     std::vector<size_t> shape_;
     std::vector<size_t> strides_;
     core::DType dtype_;
+
+    // Autograd-related members
+    bool requires_grad_{false};
+    std::shared_ptr<Tensor> grad_{nullptr};
+    std::shared_ptr<graph::Node> grad_fn_{nullptr};
 };
 
 } // namespace tensor

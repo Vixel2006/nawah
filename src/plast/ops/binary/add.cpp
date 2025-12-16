@@ -137,5 +137,60 @@ tensor::Tensor AddOperation::execute_cuda(const std::vector<const tensor::Tensor
 #endif
 }
 
+void AddOperation::backward(const tensor::Tensor& grad_output,
+                            const tensor::Tensor& output,
+                            std::vector<tensor::Tensor*>& inputs) const
+{
+    if (inputs.size() != 2)
+    {
+        throw std::runtime_error("Add backward expects 2 inputs.");
+    }
+
+    tensor::Tensor* lhs = inputs[0];
+    tensor::Tensor* rhs = inputs[1];
+
+    if (lhs->requires_grad())
+    {
+        if (lhs->grad() == nullptr)
+        {
+            lhs->set_grad(std::make_shared<tensor::Tensor>(lhs->shape(), lhs->dtype(), lhs->device()));
+        }
+
+        if (lhs->shape() == grad_output.shape())
+        {
+            // Simple case: no broadcasting
+            for (size_t i = 0; i < lhs->num_elements(); ++i)
+            {
+                lhs->grad()->data_as<float>()[i] += grad_output.data_as<const float>()[i];
+            }
+        }
+        else
+        {
+            // TODO: Handle broadcasting
+        }
+    }
+
+    if (rhs->requires_grad())
+    {
+        if (rhs->grad() == nullptr)
+        {
+            rhs->set_grad(std::make_shared<tensor::Tensor>(rhs->shape(), rhs->dtype(), rhs->device()));
+        }
+
+        if (rhs->shape() == grad_output.shape())
+        {
+            // Simple case: no broadcasting
+            for (size_t i = 0; i < rhs->num_elements(); ++i)
+            {
+                rhs->grad()->data_as<float>()[i] += grad_output.data_as<const float>()[i];
+            }
+        }
+        else
+        {
+            // TODO: Handle broadcasting
+        }
+    }
+}
+
 } // namespace ops
 } // namespace plast

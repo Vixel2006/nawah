@@ -1,11 +1,15 @@
 #include "plast/tensor/tensor.h"
 #include "plast/core/data_buffer.h"
 #include "plast/core/types.h"
+#include "plast/graph/node.h"
 #include <iostream>
 
+#include <algorithm>
 #include <cstring>
+#include <memory>
 #include <numeric>
 #include <stdexcept>
+#include <vector>
 
 #ifdef PLAST_CUDA_ENABLED
 #include <cuda_runtime.h>
@@ -120,11 +124,15 @@ Tensor::Tensor(std::shared_ptr<core::DataBuffer> buffer, const std::vector<size_
     }
 }
 
+Tensor::~Tensor() = default;
+
 // Move constructor
 Tensor::Tensor(Tensor&& other) noexcept
     : buffer_(std::move(other.buffer_)), shape_(std::move(other.shape_)),
-      strides_(std::move(other.strides_)), dtype_(other.dtype_)
+      strides_(std::move(other.strides_)), dtype_(other.dtype_),
+      requires_grad_(other.requires_grad_), grad_(std::move(other.grad_))
 {
+    other.requires_grad_ = false;
 }
 
 // Move assignment operator
@@ -136,6 +144,10 @@ Tensor& Tensor::operator=(Tensor&& other) noexcept
         shape_ = std::move(other.shape_);
         strides_ = std::move(other.strides_);
         dtype_ = std::move(other.dtype_);
+        requires_grad_ = other.requires_grad_;
+        grad_ = std::move(other.grad_);
+
+        other.requires_grad_ = false;
     }
     return *this;
 }
@@ -351,6 +363,60 @@ Tensor Tensor::view(const std::vector<size_t>& new_shape,
 {
     // Create a new Tensor object that shares the same DataBuffer
     return Tensor(buffer_, new_shape, new_strides, dtype_);
+}
+
+void Tensor::backward()
+{
+    if (!requires_grad_)
+    {
+        throw std::runtime_error("Cannot call backward on a tensor that does not require gradients.");
+    }
+
+    // Topological sort of the graph
+    std::vector<std::shared_ptr<graph::Node>> sorted_nodes;
+    std::vector<std::shared_ptr<graph::Node>> stack;
+    std::vector<std::shared_ptr<graph::Node>> visited;
+
+    stack.push_back(grad_fn_);
+
+    while (!stack.empty())
+    {
+        auto node = stack.back();
+        stack.pop_back();
+
+        if (std::find(visited.begin(), visited.end(), node) != visited.end())
+        {
+            continue;
+        }
+        visited.push_back(node);
+
+        for (const auto& input : node->inputs())
+        {
+            if (input->operation())
+            {
+                stack.push_back(input);
+            }
+        }
+        sorted_nodes.push_back(node);
+    }
+    std::reverse(sorted_nodes.begin(), sorted_nodes.end());
+
+    // Initialize gradient of the output tensor with ones
+    auto grad_data = new float[num_elements()];
+    std::fill(grad_data, grad_data + num_elements(), 1.0f);
+    grad_ = std::make_shared<Tensor>(shape(), strides(), dtype(), device());
+    std::memcpy(grad_->data(), grad_data, nbytes());
+    delete[] grad_data;
+
+    // Backward pass
+    for (const auto& node : sorted_nodes)
+    {
+        auto& output_tensor = *node->get_output_tensor();
+        auto& grad_output = *output_tensor.grad();
+
+        std::vector<Tensor*> inputs = node->get_inputs_as_raw_pointers();
+        node->operation()->backward(grad_output, output_tensor, inputs);
+    }
 }
 
 } // namespace tensor

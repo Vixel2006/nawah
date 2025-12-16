@@ -89,5 +89,76 @@ BroadcastOperation::execute_cuda(const std::vector<const tensor::Tensor*>& input
     return output_tensor;
 }
 
+void BroadcastOperation::backward(const tensor::Tensor& grad_output,
+                                  const tensor::Tensor& output,
+                                  std::vector<tensor::Tensor*>& inputs) const
+{
+    if (inputs.size() != 1)
+    {
+        throw std::runtime_error("Broadcast backward expects 1 input.");
+    }
+
+    tensor::Tensor* input = inputs[0];
+
+    if (input->requires_grad())
+    {
+        if (input->grad() == nullptr)
+        {
+            input->set_grad(std::make_shared<tensor::Tensor>(input->shape(), input->dtype(), input->device()));
+        }
+
+        if (input->device() == core::DeviceType::CPU)
+        {
+            // Sum the gradients along the broadcasted dimensions
+            std::vector<size_t> reduction_axes;
+            int N = grad_output.ndim() - input->ndim();
+            for (int i = 0; i < N; ++i)
+            {
+                reduction_axes.push_back(i);
+            }
+            for (int i = 0; i < input->ndim(); ++i)
+            {
+                if (input->shape()[i] == 1 && grad_output.shape()[N + i] > 1)
+                {
+                    reduction_axes.push_back(N + i);
+                }
+            }
+
+            // TODO: Implement a reduction kernel
+            // For now, we will do a naive sum
+            if (reduction_axes.empty())
+            {
+                for (size_t i = 0; i < input->num_elements(); ++i)
+                {
+                    input->grad()->data_as<float>()[i] += grad_output.data_as<const float>()[i];
+                }
+            }
+            else
+            {
+                // This is a naive implementation and will be slow.
+                // A proper reduction kernel should be used here.
+                for (size_t i = 0; i < grad_output.num_elements(); ++i)
+                {
+                    size_t input_index = 0;
+                    size_t grad_output_index = i;
+                    for (int j = 0; j < grad_output.ndim(); ++j)
+                    {
+                        size_t coord = (grad_output_index / grad_output.strides()[j]) % grad_output.shape()[j];
+                        if (j >= N && input->shape()[j - N] != 1)
+                        {
+                            input_index += coord * input->strides()[j - N];
+                        }
+                    }
+                    input->grad()->data_as<float>()[input_index] += grad_output.data_as<const float>()[i];
+                }
+            }
+        }
+        else if (input->device() == core::DeviceType::CUDA)
+        {
+            throw std::runtime_error("Broadcast backward for CUDA is not implemented.");
+        }
+    }
+}
+
 } // namespace ops
 } // namespace plast

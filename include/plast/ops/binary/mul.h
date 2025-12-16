@@ -16,7 +16,7 @@ namespace ops
 class MulOperation : public BaseOperation
 {
   public:
-    const std::string& name() const
+    const std::string& name() const override
     {
         static const std::string op_name = "mul";
         return op_name;
@@ -34,6 +34,9 @@ class MulOperation : public BaseOperation
 
     tensor::Tensor execute_cpu(const std::vector<const tensor::Tensor*>& inputs) const override;
     tensor::Tensor execute_cuda(const std::vector<const tensor::Tensor*>& inputs) const override;
+    void backward(const tensor::Tensor& grad_output,
+                  const tensor::Tensor& output,
+                  std::vector<tensor::Tensor*>& inputs) const override;
 };
 
 } // namespace ops
