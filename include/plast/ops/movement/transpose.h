@@ -36,9 +36,14 @@ class TransposeOperation : public BaseOperation
 
     tensor::Tensor execute_cpu(const std::vector<const tensor::Tensor*>& inputs) const override;
     tensor::Tensor execute_cuda(const std::vector<const tensor::Tensor*>& inputs) const override;
-    void backward(const tensor::Tensor& grad_output,
-                  const tensor::Tensor& output,
-                  std::vector<tensor::Tensor*>& inputs) const override;
+
+    std::vector<tensor::Tensor>
+    backward_cpu(const tensor::Tensor& grad_output, const tensor::Tensor& output,
+                 const std::vector<const tensor::Tensor*>& inputs) const override;
+
+    std::vector<tensor::Tensor>
+    backward_cuda(const tensor::Tensor& grad_output, const tensor::Tensor& output,
+                  const std::vector<const tensor::Tensor*>& inputs) const override;
 
   private:
     size_t N, M;

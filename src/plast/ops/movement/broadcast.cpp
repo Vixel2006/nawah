@@ -1,7 +1,7 @@
 #include "plast/ops/movement/broadcast.h"
-#include "plast/kernels/cpu/broadcast_kernels.h" // New include
+#include "plast/kernels/cpu/broadcast_kernels.h"  // New include
 #include "plast/kernels/cuda/broadcast_kernels.h" // New include
-#include "plast/tensor/tensor.h"                 // For get_dtype_size
+#include "plast/tensor/tensor.h"                  // For get_dtype_size
 
 #include <algorithm>
 #include <numeric>
@@ -89,75 +89,108 @@ BroadcastOperation::execute_cuda(const std::vector<const tensor::Tensor*>& input
     return output_tensor;
 }
 
-void BroadcastOperation::backward(const tensor::Tensor& grad_output,
-                                  const tensor::Tensor& output,
-                                  std::vector<tensor::Tensor*>& inputs) const
+std::vector<tensor::Tensor>
+BroadcastOperation::backward_cpu(const tensor::Tensor& grad_output, const tensor::Tensor& output,
+                                 const std::vector<const tensor::Tensor*>& inputs) const
 {
     if (inputs.size() != 1)
     {
         throw std::runtime_error("Broadcast backward expects 1 input.");
     }
 
-    tensor::Tensor* input = inputs[0];
+    const tensor::Tensor* input = inputs[0];
 
+    // Initialize gradients for inputs
+    std::vector<tensor::Tensor> input_grads;
+    input_grads.reserve(1);
+
+    // Gradient for input
     if (input->requires_grad())
     {
-        if (input->grad() == nullptr)
+        // Sum the gradients along the broadcasted dimensions
+        std::vector<size_t> reduction_axes;
+        int N_dims_diff = grad_output.ndim() - input->ndim(); // Difference in number of dimensions
+        for (int i = 0; i < N_dims_diff; ++i)
         {
-            input->set_grad(std::make_shared<tensor::Tensor>(input->shape(), input->dtype(), input->device()));
+            reduction_axes.push_back(i);
+        }
+        for (int i = 0; i < input->ndim(); ++i)
+        {
+            // If input dimension was 1 and output dimension is > 1, it was broadcasted
+            if (input->shape()[i] == 1 && grad_output.shape()[N_dims_diff + i] > 1)
+            {
+                reduction_axes.push_back(N_dims_diff + i);
+            }
         }
 
-        if (input->device() == core::DeviceType::CPU)
-        {
-            // Sum the gradients along the broadcasted dimensions
-            std::vector<size_t> reduction_axes;
-            int N = grad_output.ndim() - input->ndim();
-            for (int i = 0; i < N; ++i)
-            {
-                reduction_axes.push_back(i);
-            }
-            for (int i = 0; i < input->ndim(); ++i)
-            {
-                if (input->shape()[i] == 1 && grad_output.shape()[N + i] > 1)
-                {
-                    reduction_axes.push_back(N + i);
-                }
-            }
+        // Create a new tensor for the gradient of the input
+        tensor::Tensor grad_input(input->shape(), input->dtype(), input->device());
 
-            // TODO: Implement a reduction kernel
-            // For now, we will do a naive sum
-            if (reduction_axes.empty())
+        // TODO: Implement a proper reduction kernel for broadcasting backward
+        // For now, a naive sum if shapes match, otherwise a placeholder error
+        if (reduction_axes.empty())
+        {
+            // No broadcasting happened, just copy grad_output
+            if (input->shape() == grad_output.shape())
             {
-                for (size_t i = 0; i < input->num_elements(); ++i)
-                {
-                    input->grad()->data_as<float>()[i] += grad_output.data_as<const float>()[i];
-                }
+                grad_input = grad_output.clone();
             }
             else
             {
-                // This is a naive implementation and will be slow.
-                // A proper reduction kernel should be used here.
-                for (size_t i = 0; i < grad_output.num_elements(); ++i)
-                {
-                    size_t input_index = 0;
-                    size_t grad_output_index = i;
-                    for (int j = 0; j < grad_output.ndim(); ++j)
-                    {
-                        size_t coord = (grad_output_index / grad_output.strides()[j]) % grad_output.shape()[j];
-                        if (j >= N && input->shape()[j - N] != 1)
-                        {
-                            input_index += coord * input->strides()[j - N];
-                        }
-                    }
-                    input->grad()->data_as<float>()[input_index] += grad_output.data_as<const float>()[i];
-                }
+                throw std::runtime_error(
+                    "Broadcast backward_cpu: Shapes mismatch without reduction axes.");
             }
         }
-        else if (input->device() == core::DeviceType::CUDA)
+        else
         {
-            throw std::runtime_error("Broadcast backward for CUDA is not implemented.");
+            throw std::runtime_error("Broadcast backward_cpu: Reduction for broadcasted dimensions "
+                                     "not yet implemented.");
         }
+        input_grads.push_back(std::move(grad_input));
     }
+    else
+    {
+        input_grads.push_back(tensor::Tensor({}, input->dtype(),
+                                             input->device())); // Empty tensor if no grad required
+    }
+
+    return input_grads;
+}
+
+std::vector<tensor::Tensor>
+BroadcastOperation::backward_cuda(const tensor::Tensor& grad_output, const tensor::Tensor& output,
+                                  const std::vector<const tensor::Tensor*>& inputs) const
+{
+#ifdef PLAST_CUDA_ENABLED
+    if (inputs.size() != 1)
+    {
+        throw std::runtime_error("Broadcast backward expects 1 input.");
+    }
+
+    const tensor::Tensor* input = inputs[0];
+
+    // Initialize gradients for inputs
+    std::vector<tensor::Tensor> input_grads;
+    input_grads.reserve(1);
+
+    // Gradient for input
+    if (input->requires_grad())
+    {
+        // Sum the gradients along the broadcasted dimensions
+        // TODO: Implement CUDA reduction kernel for broadcasting backward
+        throw std::runtime_error(
+            "Broadcast backward_cuda: Reduction for broadcasted dimensions not yet implemented.");
+    }
+    else
+    {
+        input_grads.push_back(tensor::Tensor({}, input->dtype(), input->device()));
+    }
+
+    return input_grads;
+#else
+    throw std::runtime_error(
+        "CUDA is not enabled. Cannot execute Broadcast backward operation on CUDA device.");
+#endif
 }
 
 } // namespace ops

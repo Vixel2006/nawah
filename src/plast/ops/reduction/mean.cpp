@@ -104,20 +104,20 @@ tensor::Tensor MeanOperation::execute_cuda(const std::vector<const tensor::Tenso
         }
         else
         {
-            throw std::runtime_error(
-                "CUDA Mean reduction dim float operation not yet implemented for contiguous inputs.");
+            throw std::runtime_error("CUDA Mean reduction dim float operation not yet implemented "
+                                     "for contiguous inputs.");
         }
         break;
     case core::DType::INT32:
         if (full_reduction_)
         {
-            throw std::runtime_error(
-                "CUDA Mean full reduction int32 operation not yet implemented for contiguous inputs.");
+            throw std::runtime_error("CUDA Mean full reduction int32 operation not yet implemented "
+                                     "for contiguous inputs.");
         }
         else
         {
-            throw std::runtime_error(
-                "CUDA Mean reduction dim int32 operation not yet implemented for contiguous inputs.");
+            throw std::runtime_error("CUDA Mean reduction dim int32 operation not yet implemented "
+                                     "for contiguous inputs.");
         }
         break;
     default:
@@ -130,11 +130,72 @@ tensor::Tensor MeanOperation::execute_cuda(const std::vector<const tensor::Tenso
 #endif
 }
 
-void MeanOperation::backward(const tensor::Tensor& grad_output,
-                             const tensor::Tensor& output,
-                             std::vector<tensor::Tensor*>& inputs) const
+std::vector<tensor::Tensor>
+MeanOperation::backward_cpu(const tensor::Tensor& grad_output, const tensor::Tensor& output,
+                            const std::vector<const tensor::Tensor*>& inputs) const
 {
-    throw std::runtime_error("Not implemented");
+    if (inputs.size() != 1)
+    {
+        throw std::runtime_error("Mean backward expects 1 input.");
+    }
+
+    const tensor::Tensor* input = inputs[0];
+
+    // Initialize gradients for inputs
+    std::vector<tensor::Tensor> input_grads;
+    input_grads.reserve(1);
+
+    // Gradient for input
+    if (input->requires_grad())
+    {
+        // The gradient of mean(x) with respect to x is 1/N, where N is the number of elements in
+        // the reduction. grad_input = grad_output * (1 / N)
+        throw std::runtime_error(
+            "Mean backward_cpu: Gradient for input not yet implemented (requires division by N).");
+    }
+    else
+    {
+        input_grads.push_back(tensor::Tensor({}, input->dtype(),
+                                             input->device())); // Empty tensor if no grad required
+    }
+
+    return input_grads;
+}
+
+std::vector<tensor::Tensor>
+MeanOperation::backward_cuda(const tensor::Tensor& grad_output, const tensor::Tensor& output,
+                             const std::vector<const tensor::Tensor*>& inputs) const
+{
+#ifdef PLAST_CUDA_ENABLED
+    if (inputs.size() != 1)
+    {
+        throw std::runtime_error("Mean backward expects 1 input.");
+    }
+
+    const tensor::Tensor* input = inputs[0];
+
+    // Initialize gradients for inputs
+    std::vector<tensor::Tensor> input_grads;
+    input_grads.reserve(1);
+
+    // Gradient for input
+    if (input->requires_grad())
+    {
+        // The gradient of mean(x) with respect to x is 1/N, where N is the number of elements in
+        // the reduction. grad_input = grad_output * (1 / N)
+        throw std::runtime_error(
+            "Mean backward_cuda: Gradient for input not yet implemented (requires division by N).");
+    }
+    else
+    {
+        input_grads.push_back(tensor::Tensor({}, input->dtype(), input->device()));
+    }
+
+    return input_grads;
+#else
+    throw std::runtime_error(
+        "CUDA is not enabled. Cannot execute Mean backward operation on CUDA device.");
+#endif
 }
 
 } // namespace ops

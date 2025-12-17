@@ -101,11 +101,72 @@ tensor::Tensor ExpOperation::execute_cuda(const std::vector<const tensor::Tensor
 #endif
 }
 
-void ExpOperation::backward(const tensor::Tensor& grad_output,
-                            const tensor::Tensor& output,
-                            std::vector<tensor::Tensor*>& inputs) const
+std::vector<tensor::Tensor>
+ExpOperation::backward_cpu(const tensor::Tensor& grad_output, const tensor::Tensor& output,
+                           const std::vector<const tensor::Tensor*>& inputs) const
 {
-    throw std::runtime_error("Not implemented");
+    if (inputs.size() != 1)
+    {
+        throw std::runtime_error("Exp backward expects 1 input.");
+    }
+
+    const tensor::Tensor* input = inputs[0];
+
+    // Initialize gradients for inputs
+    std::vector<tensor::Tensor> input_grads;
+    input_grads.reserve(1);
+
+    // Gradient for input
+    if (input->requires_grad())
+    {
+        // d(exp(x))/dx = exp(x)
+        // grad_input = grad_output * exp(input) = grad_output * output
+        throw std::runtime_error("Exp backward_cpu: Gradient for input not yet implemented "
+                                 "(requires element-wise mul).");
+    }
+    else
+    {
+        input_grads.push_back(tensor::Tensor({}, input->dtype(),
+                                             input->device())); // Empty tensor if no grad required
+    }
+
+    return input_grads;
+}
+
+std::vector<tensor::Tensor>
+ExpOperation::backward_cuda(const tensor::Tensor& grad_output, const tensor::Tensor& output,
+                            const std::vector<const tensor::Tensor*>& inputs) const
+{
+#ifdef PLAST_CUDA_ENABLED
+    if (inputs.size() != 1)
+    {
+        throw std::runtime_error("Exp backward expects 1 input.");
+    }
+
+    const tensor::Tensor* input = inputs[0];
+
+    // Initialize gradients for inputs
+    std::vector<tensor::Tensor> input_grads;
+    input_grads.reserve(1);
+
+    // Gradient for input
+    if (input->requires_grad())
+    {
+        // d(exp(x))/dx = exp(x)
+        // grad_input = grad_output * exp(input) = grad_output * output
+        throw std::runtime_error("Exp backward_cuda: Gradient for input not yet implemented "
+                                 "(requires element-wise mul).");
+    }
+    else
+    {
+        input_grads.push_back(tensor::Tensor({}, input->dtype(), input->device()));
+    }
+
+    return input_grads;
+#else
+    throw std::runtime_error(
+        "CUDA is not enabled. Cannot execute Exp backward operation on CUDA device.");
+#endif
 }
 
 } // namespace ops
