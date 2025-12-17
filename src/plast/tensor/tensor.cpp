@@ -210,12 +210,13 @@ Tensor Tensor::to(core::DeviceType target_device) const
         return clone(); // Already on target device, return a copy
     }
 
-    const Tensor* source_tensor_ptr = this; // Assume *this is the source initially
+    const Tensor* source_tensor_ptr = this;      // Assume *this is the source initially
     std::unique_ptr<Tensor> owned_cloned_tensor; // Use unique_ptr for optional ownership
 
-    if (!is_contiguous()) {
+    if (!is_contiguous())
+    {
         owned_cloned_tensor = std::make_unique<Tensor>(clone()); // Clone if not contiguous
-        source_tensor_ptr = owned_cloned_tensor.get(); // Point to the cloned tensor
+        source_tensor_ptr = owned_cloned_tensor.get();           // Point to the cloned tensor
     }
 
     // Create a new tensor on the target device
@@ -225,33 +226,38 @@ Tensor Tensor::to(core::DeviceType target_device) const
     size_t bytes = source_tensor_ptr->nbytes();
     if (bytes > 0)
     {
-        if (source_tensor_ptr->device() == core::DeviceType::CPU && target_device == core::DeviceType::CUDA)
+        if (source_tensor_ptr->device() == core::DeviceType::CPU &&
+            target_device == core::DeviceType::CUDA)
         {
 #ifdef PLAST_CUDA_ENABLED
-            PLAST_CUDA_CHECK(cudaMemcpy(new_tensor.data(), source_tensor_ptr->data(), bytes, cudaMemcpyHostToDevice));
+            PLAST_CUDA_CHECK(cudaMemcpy(new_tensor.data(), source_tensor_ptr->data(), bytes,
+                                        cudaMemcpyHostToDevice));
 #else
             throw std::runtime_error("CUDA is not enabled. Cannot perform CUDA memcpy.");
 #endif
         }
-        else if (source_tensor_ptr->device() == core::DeviceType::CUDA && target_device == core::DeviceType::CPU)
+        else if (source_tensor_ptr->device() == core::DeviceType::CUDA &&
+                 target_device == core::DeviceType::CPU)
         {
 #ifdef PLAST_CUDA_ENABLED
-            PLAST_CUDA_CHECK(
-                cudaMemcpy(new_tensor.data(), source_tensor_ptr->data(), bytes, cudaMemcpyDeviceToHost));
+            PLAST_CUDA_CHECK(cudaMemcpy(new_tensor.data(), source_tensor_ptr->data(), bytes,
+                                        cudaMemcpyDeviceToHost));
 #else
             throw std::runtime_error("CUDA is not enabled. Cannot perform CUDA memcpy.");
 #endif
         }
-        else if (source_tensor_ptr->device() == core::DeviceType::CUDA && target_device == core::DeviceType::CUDA)
+        else if (source_tensor_ptr->device() == core::DeviceType::CUDA &&
+                 target_device == core::DeviceType::CUDA)
         {
 #ifdef PLAST_CUDA_ENABLED
-            PLAST_CUDA_CHECK(
-                cudaMemcpy(new_tensor.data(), source_tensor_ptr->data(), bytes, cudaMemcpyDeviceToDevice));
+            PLAST_CUDA_CHECK(cudaMemcpy(new_tensor.data(), source_tensor_ptr->data(), bytes,
+                                        cudaMemcpyDeviceToDevice));
 #else
             throw std::runtime_error("CUDA is not enabled. Cannot perform CUDA memcpy.");
 #endif
         }
-        else if (source_tensor_ptr->device() == core::DeviceType::CPU && target_device == core::DeviceType::CPU)
+        else if (source_tensor_ptr->device() == core::DeviceType::CPU &&
+                 target_device == core::DeviceType::CPU)
         {
             std::memcpy(new_tensor.data(), source_tensor_ptr->data(), bytes);
         }
@@ -363,60 +369,6 @@ Tensor Tensor::view(const std::vector<size_t>& new_shape,
 {
     // Create a new Tensor object that shares the same DataBuffer
     return Tensor(buffer_, new_shape, new_strides, dtype_);
-}
-
-void Tensor::backward()
-{
-    if (!requires_grad_)
-    {
-        throw std::runtime_error("Cannot call backward on a tensor that does not require gradients.");
-    }
-
-    // Topological sort of the graph
-    std::vector<std::shared_ptr<graph::Node>> sorted_nodes;
-    std::vector<std::shared_ptr<graph::Node>> stack;
-    std::vector<std::shared_ptr<graph::Node>> visited;
-
-    stack.push_back(grad_fn_);
-
-    while (!stack.empty())
-    {
-        auto node = stack.back();
-        stack.pop_back();
-
-        if (std::find(visited.begin(), visited.end(), node) != visited.end())
-        {
-            continue;
-        }
-        visited.push_back(node);
-
-        for (const auto& input : node->inputs())
-        {
-            if (input->operation())
-            {
-                stack.push_back(input);
-            }
-        }
-        sorted_nodes.push_back(node);
-    }
-    std::reverse(sorted_nodes.begin(), sorted_nodes.end());
-
-    // Initialize gradient of the output tensor with ones
-    auto grad_data = new float[num_elements()];
-    std::fill(grad_data, grad_data + num_elements(), 1.0f);
-    grad_ = std::make_shared<Tensor>(shape(), strides(), dtype(), device());
-    std::memcpy(grad_->data(), grad_data, nbytes());
-    delete[] grad_data;
-
-    // Backward pass
-    for (const auto& node : sorted_nodes)
-    {
-        auto& output_tensor = *node->get_output_tensor();
-        auto& grad_output = *output_tensor.grad();
-
-        std::vector<Tensor*> inputs = node->get_inputs_as_raw_pointers();
-        node->operation()->backward(grad_output, output_tensor, inputs);
-    }
 }
 
 } // namespace tensor

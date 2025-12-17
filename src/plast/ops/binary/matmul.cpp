@@ -183,7 +183,8 @@ tensor::Tensor MatmulOperation::execute_cuda(const std::vector<const tensor::Ten
         int M_dim = current_rhs_shape[current_rhs_ndim - 1];
 
         plast_cuda_matmul_kernel_int32(output.data_as<int32_t>(), lhs.data_as<const int32_t>(),
-                                       rhs.data_as<const int32_t>(), B_dim, N_dim, M_dim, K_dim_val);
+                                       rhs.data_as<const int32_t>(), B_dim, N_dim, M_dim,
+                                       K_dim_val);
     }
     break;
     default:
@@ -197,11 +198,97 @@ tensor::Tensor MatmulOperation::execute_cuda(const std::vector<const tensor::Ten
 #endif
 }
 
-void MatmulOperation::backward(const tensor::Tensor& grad_output,
-                               const tensor::Tensor& output,
-                               std::vector<tensor::Tensor*>& inputs) const
+std::vector<tensor::Tensor>
+MatmulOperation::backward_cpu(const tensor::Tensor& grad_output, const tensor::Tensor& output,
+                              const std::vector<const tensor::Tensor*>& inputs) const
 {
-    throw std::runtime_error("Not implemented");
+    if (inputs.size() != 2)
+    {
+        throw std::runtime_error("Matmul backward expects 2 inputs.");
+    }
+
+    const tensor::Tensor* lhs_input = inputs[0];
+    const tensor::Tensor* rhs_input = inputs[1];
+
+    // Initialize gradients for inputs
+    std::vector<tensor::Tensor> input_grads;
+    input_grads.reserve(2);
+
+    // Gradient for LHS (input[0])
+    if (lhs_input->requires_grad())
+    {
+        // d(A*B)/dA = grad_output @ B.T
+        throw std::runtime_error("Matmul backward_cpu: Gradient for LHS not yet implemented "
+                                 "(requires matmul and transpose).");
+    }
+    else
+    {
+        input_grads.push_back(tensor::Tensor(
+            {}, lhs_input->dtype(), lhs_input->device())); // Empty tensor if no grad required
+    }
+
+    // Gradient for RHS (input[1])
+    if (rhs_input->requires_grad())
+    {
+        // d(A*B)/dB = A.T @ grad_output
+        throw std::runtime_error("Matmul backward_cpu: Gradient for RHS not yet implemented "
+                                 "(requires matmul and transpose).");
+    }
+    else
+    {
+        input_grads.push_back(tensor::Tensor(
+            {}, rhs_input->dtype(), rhs_input->device())); // Empty tensor if no grad required
+    }
+
+    return input_grads;
+}
+
+std::vector<tensor::Tensor>
+MatmulOperation::backward_cuda(const tensor::Tensor& grad_output, const tensor::Tensor& output,
+                               const std::vector<const tensor::Tensor*>& inputs) const
+{
+#ifdef PLAST_CUDA_ENABLED
+    if (inputs.size() != 2)
+    {
+        throw std::runtime_error("Matmul backward expects 2 inputs.");
+    }
+
+    const tensor::Tensor* lhs_input = inputs[0];
+    const tensor::Tensor* rhs_input = inputs[1];
+
+    // Initialize gradients for inputs
+    std::vector<tensor::Tensor> input_grads;
+    input_grads.reserve(2);
+
+    // Gradient for LHS (input[0])
+    if (lhs_input->requires_grad())
+    {
+        // d(A*B)/dA = grad_output @ B.T
+        throw std::runtime_error("Matmul backward_cuda: Gradient for LHS not yet implemented "
+                                 "(requires matmul and transpose).");
+    }
+    else
+    {
+        input_grads.push_back(tensor::Tensor({}, lhs_input->dtype(), lhs_input->device()));
+    }
+
+    // Gradient for RHS (input[1])
+    if (rhs_input->requires_grad())
+    {
+        // d(A*B)/dB = A.T @ grad_output
+        throw std::runtime_error("Matmul backward_cuda: Gradient for RHS not yet implemented "
+                                 "(requires matmul and transpose).");
+    }
+    else
+    {
+        input_grads.push_back(tensor::Tensor({}, rhs_input->dtype(), rhs_input->device()));
+    }
+
+    return input_grads;
+#else
+    throw std::runtime_error(
+        "CUDA is not enabled. Cannot execute Matmul backward operation on CUDA device.");
+#endif
 }
 
 } // namespace ops

@@ -90,7 +90,6 @@ class Tensor
     void set_grad(std::shared_ptr<Tensor> grad) { grad_ = grad; }
     std::shared_ptr<graph::Node> grad_fn() const { return grad_fn_; }
     void set_grad_fn(std::shared_ptr<graph::Node> grad_fn) { grad_fn_ = grad_fn; }
-    void backward();
 
   private:
     std::shared_ptr<core::DataBuffer> buffer_;

@@ -57,9 +57,9 @@ bool Node::has_output_tensor() const { return output_tensor_ != nullptr; }
 
 void Node::clear_output_tensor() { output_tensor_.reset(); }
 
-std::vector<tensor::Tensor*> Node::get_inputs_as_raw_pointers()
+std::vector<const tensor::Tensor*> Node::get_inputs_as_raw_pointers() const
 {
-    std::vector<tensor::Tensor*> input_tensors;
+    std::vector<const tensor::Tensor*> input_tensors;
     input_tensors.reserve(inputs_.size());
     for (const auto& input_node : inputs_)
     {

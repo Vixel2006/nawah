@@ -100,11 +100,72 @@ tensor::Tensor LogOperation::execute_cuda(const std::vector<const tensor::Tensor
 #endif
 }
 
-void LogOperation::backward(const tensor::Tensor& grad_output,
-                            const tensor::Tensor& output,
-                            std::vector<tensor::Tensor*>& inputs) const
+std::vector<tensor::Tensor>
+LogOperation::backward_cpu(const tensor::Tensor& grad_output, const tensor::Tensor& output,
+                           const std::vector<const tensor::Tensor*>& inputs) const
 {
-    throw std::runtime_error("Not implemented");
+    if (inputs.size() != 1)
+    {
+        throw std::runtime_error("Log backward expects 1 input.");
+    }
+
+    const tensor::Tensor* input = inputs[0];
+
+    // Initialize gradients for inputs
+    std::vector<tensor::Tensor> input_grads;
+    input_grads.reserve(1);
+
+    // Gradient for input
+    if (input->requires_grad())
+    {
+        // d(log(x))/dx = 1/x
+        // grad_input = grad_output * (1 / input)
+        throw std::runtime_error("Log backward_cpu: Gradient for input not yet implemented "
+                                 "(requires element-wise division).");
+    }
+    else
+    {
+        input_grads.push_back(tensor::Tensor({}, input->dtype(),
+                                             input->device())); // Empty tensor if no grad required
+    }
+
+    return input_grads;
+}
+
+std::vector<tensor::Tensor>
+LogOperation::backward_cuda(const tensor::Tensor& grad_output, const tensor::Tensor& output,
+                            const std::vector<const tensor::Tensor*>& inputs) const
+{
+#ifdef PLAST_CUDA_ENABLED
+    if (inputs.size() != 1)
+    {
+        throw std::runtime_error("Log backward expects 1 input.");
+    }
+
+    const tensor::Tensor* input = inputs[0];
+
+    // Initialize gradients for inputs
+    std::vector<tensor::Tensor> input_grads;
+    input_grads.reserve(1);
+
+    // Gradient for input
+    if (input->requires_grad())
+    {
+        // d(log(x))/dx = 1/x
+        // grad_input = grad_output * (1 / input)
+        throw std::runtime_error("Log backward_cuda: Gradient for input not yet implemented "
+                                 "(requires element-wise division).");
+    }
+    else
+    {
+        input_grads.push_back(tensor::Tensor({}, input->dtype(), input->device()));
+    }
+
+    return input_grads;
+#else
+    throw std::runtime_error(
+        "CUDA is not enabled. Cannot execute Log backward operation on CUDA device.");
+#endif
 }
 
 } // namespace ops

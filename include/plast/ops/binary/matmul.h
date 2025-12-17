@@ -1,16 +1,16 @@
 #pragma once
 
 #include "plast/core/shape_utils_cpp.h"
+#include "plast/core/shape_utils_cpp.h" // For core::broadcast_shapes
 #include "plast/core/types.h"
 #include "plast/ops/base_op.h"
 #include "plast/tensor/tensor.h"
-#include "plast/core/shape_utils_cpp.h" // For core::broadcast_shapes
 
 #include <numeric>
+#include <numeric> // For std::iota
 #include <stdexcept>
 #include <string>
 #include <vector>
-#include <numeric> // For std::iota
 
 namespace plast
 {
@@ -115,9 +115,14 @@ class MatmulOperation : public BaseOperation
 
     tensor::Tensor execute_cpu(const std::vector<const tensor::Tensor*>& inputs) const override;
     tensor::Tensor execute_cuda(const std::vector<const tensor::Tensor*>& inputs) const override;
-    void backward(const tensor::Tensor& grad_output,
-                  const tensor::Tensor& output,
-                  std::vector<tensor::Tensor*>& inputs) const override;
+
+    std::vector<tensor::Tensor>
+    backward_cpu(const tensor::Tensor& grad_output, const tensor::Tensor& output,
+                 const std::vector<const tensor::Tensor*>& inputs) const override;
+
+    std::vector<tensor::Tensor>
+    backward_cuda(const tensor::Tensor& grad_output, const tensor::Tensor& output,
+                  const std::vector<const tensor::Tensor*>& inputs) const override;
 };
 
 } // namespace ops

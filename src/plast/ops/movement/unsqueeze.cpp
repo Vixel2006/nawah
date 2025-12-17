@@ -49,11 +49,72 @@ UnsqueezeOperation::execute_cuda(const std::vector<const tensor::Tensor*>& input
     return execute_cpu(inputs);
 }
 
-void UnsqueezeOperation::backward(const tensor::Tensor& grad_output,
-                                  const tensor::Tensor& output,
-                                  std::vector<tensor::Tensor*>& inputs) const
+std::vector<tensor::Tensor>
+UnsqueezeOperation::backward_cpu(const tensor::Tensor& grad_output, const tensor::Tensor& output,
+                                 const std::vector<const tensor::Tensor*>& inputs) const
 {
-    throw std::runtime_error("Not implemented");
+    if (inputs.size() != 1)
+    {
+        throw std::runtime_error("Unsqueeze backward expects 1 input.");
+    }
+
+    const tensor::Tensor* input = inputs[0];
+
+    // Initialize gradients for inputs
+    std::vector<tensor::Tensor> input_grads;
+    input_grads.reserve(1);
+
+    // Gradient for input
+    if (input->requires_grad())
+    {
+        // The backward of unsqueeze is squeeze.
+        // The grad_output needs to be squeezed back to the original input's shape.
+        throw std::runtime_error(
+            "Unsqueeze backward_cpu: Gradient for input not yet implemented (requires squeeze).");
+    }
+    else
+    {
+        input_grads.push_back(tensor::Tensor({}, input->dtype(),
+                                             input->device())); // Empty tensor if no grad required
+    }
+
+    return input_grads;
+}
+
+std::vector<tensor::Tensor>
+UnsqueezeOperation::backward_cuda(const tensor::Tensor& grad_output, const tensor::Tensor& output,
+                                  const std::vector<const tensor::Tensor*>& inputs) const
+{
+#ifdef PLAST_CUDA_ENABLED
+    if (inputs.size() != 1)
+    {
+        throw std::runtime_error("Unsqueeze backward expects 1 input.");
+    }
+
+    const tensor::Tensor* input = inputs[0];
+
+    // Initialize gradients for inputs
+    std::vector<tensor::Tensor> input_grads;
+    input_grads.reserve(1);
+
+    // Gradient for input
+    if (input->requires_grad())
+    {
+        // The backward of unsqueeze is squeeze.
+        // The grad_output needs to be squeezed back to the original input's shape.
+        throw std::runtime_error(
+            "Unsqueeze backward_cuda: Gradient for input not yet implemented (requires squeeze).");
+    }
+    else
+    {
+        input_grads.push_back(tensor::Tensor({}, input->dtype(), input->device()));
+    }
+
+    return input_grads;
+#else
+    throw std::runtime_error(
+        "CUDA is not enabled. Cannot execute Unsqueeze backward operation on CUDA device.");
+#endif
 }
 
 } // namespace ops
