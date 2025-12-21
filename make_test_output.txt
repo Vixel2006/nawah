@@ -1,0 +1,117 @@
+--- Running Python tests ---
+venv/bin/pytest tests -v
+============================= test session starts ==============================
+platform linux -- Python 3.13.11, pytest-9.0.1, pluggy-1.6.0 -- /home/vixel/code/plast/venv/bin/python3
+cachedir: .pytest_cache
+rootdir: /home/vixel/code/plast
+configfile: pyproject.toml
+collecting ... collected 77 items
+
+tests/test_core.py::TestTensorCore::test_tensor_init PASSED              [  1%]
+tests/test_core.py::TestTensorCore::test_tensor_init_no_grad PASSED      [  2%]
+tests/test_core.py::TestTensorCore::test_tensor_init_default_device PASSED [  3%]
+tests/test_core.py::TestTensorCore::test_tensor_data_property PASSED     [  5%]
+tests/test_core.py::TestTensorCore::test_tensor_shape_property PASSED    [  6%]
+tests/test_core.py::TestTensorCore::test_tensor_numel PASSED             [  7%]
+tests/test_core.py::TestTensorCore::test_tensor_add PASSED               [  9%]
+tests/test_core.py::TestTensorCore::test_tensor_sub PASSED               [ 10%]
+tests/test_data.py::TestDataset::test_abstract_methods_raise_error PASSED [ 11%]
+tests/test_data.py::TestDataset::test_concrete_dataset_getitem PASSED    [ 12%]
+tests/test_data.py::TestDataset::test_concrete_dataset_len PASSED        [ 14%]
+tests/test_experiment.py::TestExperiment::test_experiment_init PASSED    [ 15%]
+tests/test_experiment.py::TestExperiment::test_log_hyperparameter PASSED [ 16%]
+tests/test_experiment.py::TestExperiment::test_log_metric PASSED         [ 18%]
+tests/test_experiment.py::TestExperiment::test_log_artifact PASSED       [ 19%]
+tests/test_experiment.py::TestExperiment::test_save_and_load_experiment PASSED [ 20%]
+tests/test_experiment.py::TestExperiment::test_load_nonexistent_experiment PASSED [ 22%]
+tests/test_tensor.py::TestTensorInitialization::test_init_from_numpy_array PASSED [ 23%]
+tests/test_tensor.py::TestTensorInitialization::test_init_from_list PASSED [ 24%]
+tests/test_tensor.py::TestTensorInitialization::test_init_from_tuple PASSED [ 25%]
+tests/test_tensor.py::TestTensorInitialization::test_init_with_shape_and_dtype PASSED [ 27%]
+tests/test_tensor.py::TestTensorInitialization::test_init_with_device PASSED [ 28%]
+tests/test_tensor.py::TestTensorInitialization::test_init_unsupported_data_type PASSED [ 29%]
+tests/test_tensor.py::TestTensorInitialization::test_init_data_shape_mismatch PASSED [ 31%]
+tests/test_tensor.py::TestTensorInitialization::test_init_unsupported_numpy_dtype PASSED [ 32%]
+tests/test_tensor.py::TestTensorInitialization::test_init_no_data_or_shape PASSED [ 33%]
+tests/test_tensor.py::TestTensorInitialization::test_init_with_cpp_node PASSED [ 35%]
+tests/test_tensor.py::TestTensorProperties::test_shape_property PASSED   [ 36%]
+tests/test_tensor.py::TestTensorProperties::test_dtype_property PASSED   [ 37%]
+tests/test_tensor.py::TestTensorProperties::test_device_property PASSED  [ 38%]
+tests/test_tensor.py::TestTensorProperties::test_data_property PASSED    [ 40%]
+tests/test_tensor.py::TestTensorUnaryOperations::test_abs PASSED         [ 41%]
+tests/test_tensor.py::TestTensorUnaryOperations::test_relu PASSED        [ 42%]
+tests/test_tensor.py::TestTensorUnaryOperations::test_leaky_relu PASSED  [ 44%]
+tests/test_tensor.py::TestTensorUnaryOperations::test_exp PASSED         [ 45%]
+tests/test_tensor.py::TestTensorUnaryOperations::test_log PASSED         [ 46%]
+tests/test_tensor.py::TestTensorBinaryOperations::test_add_tensor_tensor PASSED [ 48%]
+tests/test_tensor.py::TestTensorBinaryOperations::test_add_tensor_scalar PASSED [ 49%]
+tests/test_tensor.py::TestTensorBinaryOperations::test_radd_scalar_tensor PASSED [ 50%]
+tests/test_tensor.py::TestTensorBinaryOperations::test_sub_tensor_tensor PASSED [ 51%]
+tests/test_tensor.py::TestTensorBinaryOperations::test_sub_tensor_scalar PASSED [ 53%]
+tests/test_tensor.py::TestTensorBinaryOperations::test_rsub_scalar_tensor PASSED [ 54%]
+tests/test_tensor.py::TestTensorBinaryOperations::test_mul_tensor_tensor PASSED [ 55%]
+tests/test_tensor.py::TestTensorBinaryOperations::test_mul_tensor_scalar PASSED [ 57%]
+tests/test_tensor.py::TestTensorBinaryOperations::test_matmul_tensor_tensor PASSED [ 58%]
+tests/test_tensor.py::TestTensorBinaryOperations::test_add_broadcast PASSED [ 59%]
+tests/test_tensor.py::TestTensorBinaryOperations::test_mul_broadcast PASSED [ 61%]
+tests/test_tensor.py::TestTensorMovementOperations::test_transpose_property PASSED [ 62%]
+tests/test_tensor.py::TestTensorMovementOperations::test_transpose_method PASSED [ 63%]
+tests/test_tensor.py::TestTensorMovementOperations::test_reshape PASSED  [ 64%]
+tests/test_tensor.py::TestTensorMovementOperations::test_view PASSED     [ 66%]
+tests/test_tensor.py::TestTensorMovementOperations::test_squeeze_all_dims PASSED [ 67%]
+tests/test_tensor.py::TestTensorMovementOperations::test_squeeze_specific_dim PASSED [ 68%]
+tests/test_tensor.py::TestTensorMovementOperations::test_squeeze_no_op PASSED [ 70%]
+tests/test_tensor.py::TestTensorMovementOperations::test_unsqueeze PASSED [ 71%]
+tests/test_tensor.py::TestTensorMovementOperations::test_expand PASSED   [ 72%]
+tests/test_tensor.py::TestTensorMovementOperations::test_broadcast_to PASSED [ 74%]
+tests/test_tensor.py::TestTensorMovementOperations::test_expand_with_new_dims PASSED [ 75%]
+tests/test_tensor.py::TestTensorMovementOperations::test_expand_error_smaller_dims PASSED [ 76%]
+tests/test_tensor.py::TestTensorReductionOperations::test_min_full PASSED [ 77%]
+tests/test_tensor.py::TestTensorReductionOperations::test_min_dim PASSED [ 79%]
+tests/test_tensor.py::TestTensorReductionOperations::test_min_dim_keepdim PASSED [ 80%]
+tests/test_tensor.py::TestTensorReductionOperations::test_max_full PASSED [ 81%]
+tests/test_tensor.py::TestTensorReductionOperations::test_max_dim PASSED [ 83%]
+tests/test_tensor.py::TestTensorReductionOperations::test_max_dim_keepdim PASSED [ 84%]
+tests/test_tensor.py::TestTensorReductionOperations::test_sum_full PASSED [ 85%]
+tests/test_tensor.py::TestTensorReductionOperations::test_sum_dim PASSED [ 87%]
+tests/test_tensor.py::TestTensorReductionOperations::test_sum_dim_keepdim PASSED [ 88%]
+tests/test_tensor.py::TestTensorReductionOperations::test_mean_full PASSED [ 89%]
+tests/test_tensor.py::TestTensorReductionOperations::test_mean_dim PASSED [ 90%]
+tests/test_tensor.py::TestTensorReductionOperations::test_mean_dim_keepdim PASSED [ 92%]
+tests/test_tensor.py::TestTensorDeviceTransfer::test_to_cpu PASSED       [ 93%]
+tests/test_tensor.py::TestTensorDeviceTransfer::test_to_cuda SKIPPED     [ 94%]
+tests/test_tensor.py::TestTensorDeviceTransfer::test_get_data_from_cuda_tensor PASSED [ 96%]
+tests/test_tensor.py::TestTensorUtilityMethods::test_numel PASSED        [ 97%]
+tests/test_tensor.py::TestTensorUtilityMethods::test_numel_large_tensor PASSED [ 98%]
+tests/test_tensor.py::TestAutograd::test_simple_add_backward FAILED      [100%]
+
+=================================== FAILURES ===================================
+____________________ TestAutograd.test_simple_add_backward _____________________
+
+self = <tests.test_tensor.TestAutograd object at 0x7f79b7154cd0>
+
+    def test_simple_add_backward(self):
+        a_data = np.array([1.0], dtype=np.float32)
+        b_data = np.array([2.0], dtype=np.float32)
+    
+        a = Tensor(data=a_data, requires_grad=True)
+        b = Tensor(data=b_data, requires_grad=True)
+    
+        c = a + b # This creates the computation graph
+    
+        # Perform forward pass to compute c's value and build the graph
+        _ = c.data
+    
+        # Perform backward pass
+        c.backward()
+    
+        # Check gradients
+>       assert a.grad is not None
+E       AssertionError: assert None is not None
+E        +  where None = Tensor(shape=(1,), dtype=<class 'numpy.float32'>, device=DeviceType.CPU).grad
+
+tests/test_tensor.py:479: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_tensor.py::TestAutograd::test_simple_add_backward - Asserti...
+=================== 1 failed, 75 passed, 1 skipped in 0.29s ====================
+make: *** [Makefile:46: test] Error 1

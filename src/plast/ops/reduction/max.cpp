@@ -2,7 +2,9 @@
 #include "plast/core/device_management.h"
 #include "plast/core/shape_utils_cpp.h" // Added for strided operations
 #include "plast/core/types.h"
+#include "plast/kernels/cpu/reduction_backward_kernels.h"
 #include "plast/kernels/cpu/reduction_kernels.h"
+#include "plast/kernels/cuda/reduction_backward_kernels.h"
 #include "plast/kernels/cuda/reduction_kernels.h"
 
 #include <cstring>
@@ -24,14 +26,6 @@ tensor::Tensor MaxOperation::execute_cpu(const std::vector<const tensor::Tensor*
 
     // Allocate output tensor
     tensor::Tensor output(output_shape_vec, dtype, core::DeviceType::CPU);
-
-    bool input_contiguous = input.is_contiguous();
-
-    if (!input_contiguous)
-    {
-        throw std::runtime_error(
-            "Max operation on CPU does not yet support non-contiguous inputs.");
-    }
 
     // Dispatch to type-specific C CPU kernel
     switch (dtype)
@@ -84,14 +78,6 @@ tensor::Tensor MaxOperation::execute_cuda(const std::vector<const tensor::Tensor
     // Allocate output tensor
     tensor::Tensor output(output_shape_vec, dtype, core::DeviceType::CUDA);
 
-    bool input_contiguous = input.is_contiguous();
-
-    if (!input_contiguous)
-    {
-        throw std::runtime_error(
-            "Max operation on CUDA does not yet support non-contiguous inputs.");
-    }
-
     // Dispatch to type-specific C CUDA kernel
     switch (dtype)
     {
@@ -125,6 +111,7 @@ tensor::Tensor MaxOperation::execute_cuda(const std::vector<const tensor::Tensor
     }
 
     return output;
+
 #else
     throw std::runtime_error("CUDA is not enabled. Cannot execute Max operation on CUDA device.");
 #endif
@@ -148,10 +135,50 @@ MaxOperation::backward_cpu(const tensor::Tensor& grad_output, const tensor::Tens
     // Gradient for input
     if (input->requires_grad())
     {
-        // The gradient of max(x) with respect to x is 1 at the index of the maximum value, and 0
-        // elsewhere. This requires knowing the indices of the maximum values from the forward pass.
-        throw std::runtime_error("Max backward_cpu: Gradient for input not yet implemented "
-                                 "(requires indices from forward pass).");
+        tensor::Tensor grad_input(input->shape(), input->dtype(), input->device());
+        std::memset(grad_input.data(), 0, grad_input.nbytes()); // Initialize to zeros
+
+        // Dispatch to type-specific C CPU kernel
+        switch (input->dtype())
+        {
+        case core::DType::FLOAT32:
+            if (full_reduction_)
+            {
+                plast_cpu_max_full_reduction_backward_float(
+                    grad_input.data_as<float>(), grad_output.data_as<const float>(),
+                    inputs[0]->data_as<const float>(), output.data_as<const float>(),
+                    inputs[0]->shape().data(), inputs[0]->shape().size());
+            }
+            else
+            {
+                plast_cpu_max_reduction_dim_backward_float(
+                    grad_input.data_as<float>(), grad_output.data_as<const float>(),
+                    inputs[0]->data_as<const float>(), output.data_as<const float>(),
+                    inputs[0]->shape().data(), inputs[0]->shape().size(), output.shape().data(),
+                    output.shape().size(), dim_);
+            }
+            break;
+        case core::DType::INT32:
+            if (full_reduction_)
+            {
+                plast_cpu_max_full_reduction_backward_int32(
+                    grad_input.data_as<int32_t>(), grad_output.data_as<const int32_t>(),
+                    inputs[0]->data_as<const int32_t>(), output.data_as<const int32_t>(),
+                    inputs[0]->shape().data(), inputs[0]->shape().size());
+            }
+            else
+            {
+                plast_cpu_max_reduction_dim_backward_int32(
+                    grad_input.data_as<int32_t>(), grad_output.data_as<const int32_t>(),
+                    inputs[0]->data_as<const int32_t>(), output.data_as<const int32_t>(),
+                    inputs[0]->shape().data(), inputs[0]->shape().size(), output.shape().data(),
+                    output.shape().size(), dim_);
+            }
+            break;
+        default:
+            throw std::runtime_error("Unsupported DType for Max backward on CPU.");
+        }
+        input_grads.push_back(std::move(grad_input));
     }
     else
     {
@@ -181,10 +208,45 @@ MaxOperation::backward_cuda(const tensor::Tensor& grad_output, const tensor::Ten
     // Gradient for input
     if (input->requires_grad())
     {
-        // The gradient of max(x) with respect to x is 1 at the index of the maximum value, and 0
-        // elsewhere. This requires knowing the indices of the maximum values from the forward pass.
-        throw std::runtime_error("Max backward_cuda: Gradient for input not yet implemented "
-                                 "(requires indices from forward pass).");
+        tensor::Tensor grad_input(input->shape(), input->dtype(), input->device());
+        PLAST_CUDA_CHECK(
+            cudaMemset(grad_input.data(), 0, grad_input.nbytes())); // Initialize to zeros
+
+        // Dispatch to type-specific C CUDA kernel
+        switch (input->dtype())
+        {
+        case core::DType::FLOAT32:
+            if (full_reduction_)
+            {
+                plast_cuda_max_full_reduction_backward_float(
+                    grad_input.data_as<float>(), grad_output.data_as<const float>(),
+                    inputs[0]->data_as<const float>(), output.data_as<const float>(),
+                    inputs[0]->shape().data(), inputs[0]->shape().size());
+            }
+            else
+            {
+                throw std::runtime_error(
+                    "CUDA Max reduction dim float backward operation not yet implemented.");
+            }
+            break;
+        case core::DType::INT32:
+            if (full_reduction_)
+            {
+                plast_cuda_max_full_reduction_backward_int32(
+                    grad_input.data_as<int32_t>(), grad_output.data_as<const int32_t>(),
+                    inputs[0]->data_as<const int32_t>(), output.data_as<const int32_t>(),
+                    inputs[0]->shape().data(), inputs[0]->shape().size());
+            }
+            else
+            {
+                throw std::runtime_error(
+                    "CUDA Max reduction dim int32 backward operation not yet implemented.");
+            }
+            break;
+        default:
+            throw std::runtime_error("Unsupported DType for Max backward on CUDA.");
+        }
+        input_grads.push_back(std::move(grad_input));
     }
     else
     {

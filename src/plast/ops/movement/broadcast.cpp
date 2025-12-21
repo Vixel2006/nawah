@@ -1,6 +1,8 @@
 #include "plast/ops/movement/broadcast.h"
 #include "plast/kernels/cpu/broadcast_kernels.h"  // New include
 #include "plast/kernels/cuda/broadcast_kernels.h" // New include
+#include "plast/kernels/cpu/movement_backward_kernels.h"
+#include "plast/kernels/cuda/movement_backward_kernels.h"
 #include "plast/tensor/tensor.h"                  // For get_dtype_size
 
 #include <algorithm>
@@ -107,45 +109,24 @@ BroadcastOperation::backward_cpu(const tensor::Tensor& grad_output, const tensor
     // Gradient for input
     if (input->requires_grad())
     {
-        // Sum the gradients along the broadcasted dimensions
-        std::vector<size_t> reduction_axes;
-        int N_dims_diff = grad_output.ndim() - input->ndim(); // Difference in number of dimensions
-        for (int i = 0; i < N_dims_diff; ++i)
-        {
-            reduction_axes.push_back(i);
-        }
-        for (int i = 0; i < input->ndim(); ++i)
-        {
-            // If input dimension was 1 and output dimension is > 1, it was broadcasted
-            if (input->shape()[i] == 1 && grad_output.shape()[N_dims_diff + i] > 1)
-            {
-                reduction_axes.push_back(N_dims_diff + i);
-            }
-        }
-
         // Create a new tensor for the gradient of the input
         tensor::Tensor grad_input(input->shape(), input->dtype(), input->device());
+        std::memset(grad_input.data(), 0, grad_input.nbytes()); // Initialize to zeros
 
-        // TODO: Implement a proper reduction kernel for broadcasting backward
-        // For now, a naive sum if shapes match, otherwise a placeholder error
-        if (reduction_axes.empty())
-        {
-            // No broadcasting happened, just copy grad_output
-            if (input->shape() == grad_output.shape())
-            {
-                grad_input = grad_output.clone();
-            }
-            else
-            {
-                throw std::runtime_error(
-                    "Broadcast backward_cpu: Shapes mismatch without reduction axes.");
-            }
-        }
-        else
-        {
-            throw std::runtime_error("Broadcast backward_cpu: Reduction for broadcasted dimensions "
-                                     "not yet implemented.");
-        }
+        // Get raw pointers and sizes for the kernel
+        void* grad_in_data = grad_input.data();
+        const void* grad_out_data = grad_output.data();
+        size_t item_size = plast::tensor::get_dtype_size(input->dtype());
+
+        // Convert std::vector to C-style arrays for kernel
+        std::vector<size_t> grad_out_shape_vec = grad_output.shape();
+        std::vector<size_t> grad_out_strides_vec = grad_output.strides();
+        std::vector<size_t> input_shape_vec = input->shape();
+
+        cpu_broadcast_backward_kernel(grad_in_data, grad_out_data, grad_out_shape_vec.data(),
+                                      grad_out_strides_vec.data(), grad_out_shape_vec.size(),
+                                      input_shape_vec.data(), input_shape_vec.size(), item_size);
+
         input_grads.push_back(std::move(grad_input));
     }
     else
@@ -176,10 +157,25 @@ BroadcastOperation::backward_cuda(const tensor::Tensor& grad_output, const tenso
     // Gradient for input
     if (input->requires_grad())
     {
-        // Sum the gradients along the broadcasted dimensions
-        // TODO: Implement CUDA reduction kernel for broadcasting backward
-        throw std::runtime_error(
-            "Broadcast backward_cuda: Reduction for broadcasted dimensions not yet implemented.");
+        // Create a new tensor for the gradient of the input
+        tensor::Tensor grad_input(input->shape(), input->dtype(), input->device());
+        PLAST_CUDA_CHECK(cudaMemset(grad_input.data(), 0, grad_input.nbytes())); // Initialize to zeros
+
+        // Get raw pointers and sizes for the kernel
+        void* grad_in_data = grad_input.data();
+        const void* grad_out_data = grad_output.data();
+        size_t item_size = plast::tensor::get_dtype_size(input->dtype());
+
+        // Convert std::vector to C-style arrays for kernel
+        std::vector<size_t> grad_out_shape_vec = grad_output.shape();
+        std::vector<size_t> grad_out_strides_vec = grad_output.strides();
+        std::vector<size_t> input_shape_vec = input->shape();
+
+        cuda_broadcast_backward_kernel(grad_in_data, grad_out_data, grad_out_shape_vec.data(),
+                                       grad_out_strides_vec.data(), grad_out_shape_vec.size(),
+                                       input_shape_vec.data(), input_shape_vec.size(), item_size);
+
+        input_grads.push_back(std::move(grad_input));
     }
     else
     {

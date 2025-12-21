@@ -41,4 +41,3 @@ void plast_cpu_abs_kernel_int32(int32_t* out, const int32_t* in, size_t num_elem
         out[i] = abs(in[i]);
     }
 }
-

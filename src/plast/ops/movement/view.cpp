@@ -45,8 +45,10 @@ ViewOperation::backward_cpu(const tensor::Tensor& grad_output, const tensor::Ten
         // This assumes the view operation itself doesn't change the number of elements or their
         // order in a complex way. The grad_output needs to be reshaped to the original input's
         // shape.
-        throw std::runtime_error(
-            "View backward_cpu: Gradient for input not yet implemented (requires reshape).");
+        tensor::Tensor grad_input(input->shape(), input->dtype(), input->device());
+        // Copy data from grad_output to grad_input. Since it's a reshape, the data layout should be compatible.
+        std::memcpy(grad_input.data(), grad_output.data(), grad_output.nbytes());
+        input_grads.push_back(std::move(grad_input));
     }
     else
     {
@@ -80,8 +82,9 @@ ViewOperation::backward_cuda(const tensor::Tensor& grad_output, const tensor::Te
         // This assumes the view operation itself doesn't change the number of elements or their
         // order in a complex way. The grad_output needs to be reshaped to the original input's
         // shape.
-        throw std::runtime_error(
-            "View backward_cuda: Gradient for input not yet implemented (requires reshape).");
+        tensor::Tensor grad_input(input->shape(), input->dtype(), input->device());
+        PLAST_CUDA_CHECK(cudaMemcpy(grad_input.data(), grad_output.data(), grad_output.nbytes(), cudaMemcpyDeviceToDevice));
+        input_grads.push_back(std::move(grad_input));
     }
     else
     {

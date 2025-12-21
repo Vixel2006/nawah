@@ -1,8 +1,8 @@
+#include "plast/core/shape_utils_c.h"
 #include "plast/kernels/cuda/reduction_kernels.h"
 #include <cuda_runtime.h>
 #include <plast/core/device_management.h>
 #include <plast/kernels/cuda/cuda_kernel_utils.h>
-#include "plast/core/shape_utils_c.h"
 
 // Full reduction kernel for float (multi-block)
 __global__ void full_sum_kernel_float(float* out, const float* in, size_t num_elements)

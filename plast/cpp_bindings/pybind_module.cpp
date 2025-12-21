@@ -65,17 +65,22 @@ PYBIND11_MODULE(_plast_cpp_core, m)
 
     // Bind Tensor class
     py::class_<plast::tensor::Tensor, std::shared_ptr<plast::tensor::Tensor>>(m, "Tensor")
-        .def(py::init([](const std::vector<size_t>& shape, plast::core::DType dtype,
-                         plast::core::DeviceType device)
-                      { return std::make_shared<plast::tensor::Tensor>(shape, dtype, device); }),
-             py::arg("shape"), py::arg("dtype"), py::arg("device"))
+        .def(py::init(
+                 [](const std::vector<size_t>& shape, plast::core::DType dtype,
+                    plast::core::DeviceType device, bool requires_grad)
+                 {
+                     auto t = std::make_shared<plast::tensor::Tensor>(shape, dtype, device);
+                     t->set_requires_grad(requires_grad);
+                     return t;
+                 }),
+             py::arg("shape"), py::arg("dtype"), py::arg("device"),
+             py::arg("requires_grad") = false)
         .def_property_readonly("shape", &plast::tensor::Tensor::shape)
         .def_property_readonly("strides", &plast::tensor::Tensor::strides)
         .def_property_readonly("dtype", &plast::tensor::Tensor::dtype)
         .def_property_readonly("device", &plast::tensor::Tensor::device)
         .def("to", &plast::tensor::Tensor::to, py::arg("target_device"))
         .def("clone", &plast::tensor::Tensor::clone)
-        .def("is_contiguous", &plast::tensor::Tensor::is_contiguous)
         .def("reshape",
              py::overload_cast<const std::vector<size_t>&>(&plast::tensor::Tensor::reshape,
                                                            py::const_),
@@ -166,7 +171,19 @@ PYBIND11_MODULE(_plast_cpp_core, m)
                     << ", strides=" << py::cast(t.strides()) << ", dtype=" << py::cast(t.dtype())
                     << ", device=" << py::cast(t.device()) << ")";
                  return ss.str();
-             });
+             })
+        .def_property("requires_grad", &plast::tensor::Tensor::requires_grad,
+                      &plast::tensor::Tensor::set_requires_grad,
+                      "Whether the tensor requires grad.")
+        .def("set_requires_grad", &plast::tensor::Tensor::set_requires_grad,
+             py::arg("requires_grad"), "Sets whether the tensor requires grad.")
+        .def_property_readonly(
+            "grad",
+            static_cast<const plast::tensor::Tensor* (plast::tensor::Tensor::*) () const>(
+                &plast::tensor::Tensor::grad),
+            "Returns the gradient tensor associated with this tensor.")
+        .def("set_grad", &plast::tensor::Tensor::set_grad, py::arg("grad"),
+             "Sets the gradient tensor for this tensor.");
 
     // Bind Node class (using std::shared_ptr for ownership management)
     py::class_<plast::graph::Node, std::shared_ptr<plast::graph::Node>>(m, "Node")
@@ -178,7 +195,10 @@ PYBIND11_MODULE(_plast_cpp_core, m)
         .def_property_readonly("inputs", &plast::graph::Node::inputs)
         .def_property_readonly("shape", &plast::graph::Node::shape) // Expose the shape property
         .def("has_output_tensor", &plast::graph::Node::has_output_tensor)
-        .def("get_output_tensor", &plast::graph::Node::get_output_tensor);
+        .def("get_output_tensor", &plast::graph::Node::get_output_tensor)
+        .def("get_grad_tensor", &plast::graph::Node::get_grad_tensor) // Expose get_grad_tensor
+        .def_property_readonly("requires_grad", &plast::graph::Node::requires_grad)
+        .def("set_requires_grad", &plast::graph::Node::set_requires_grad, py::arg("requires_grad"));
 
     // Bind BaseOperation abstract class
     py::class_<plast::ops::BaseOperation, std::shared_ptr<plast::ops::BaseOperation>>(
@@ -216,7 +236,7 @@ PYBIND11_MODULE(_plast_cpp_core, m)
 
     py::class_<plast::ops::SqueezeOperation, plast::ops::BaseOperation,
                std::shared_ptr<plast::ops::SqueezeOperation>>(m, "SqueezeOperation")
-        .def(py::init<size_t, size_t>(), py::arg("N"), py::arg("M"));
+        .def(py::init<int>(), py::arg("N"));
 
     py::class_<plast::ops::UnsqueezeOperation, plast::ops::BaseOperation,
                std::shared_ptr<plast::ops::UnsqueezeOperation>>(m, "UnsqueezeOperation")
@@ -253,7 +273,9 @@ PYBIND11_MODULE(_plast_cpp_core, m)
     // Bind ExecutionEngine class
     py::class_<plast::execution::ExecutionEngine>(m, "ExecutionEngine")
         .def(py::init<>())
-        .def("execute", &plast::execution::ExecutionEngine::execute);
+        .def("execute", &plast::execution::ExecutionEngine::execute)
+        .def("backward", &plast::execution::ExecutionEngine::backward, py::arg("root_node"),
+             py::arg("grad_output") = nullptr, "Computes gradients for the computation graph.");
 
     // Bind initialization functions
     m.def(
@@ -420,13 +442,13 @@ PYBIND11_MODULE(_plast_cpp_core, m)
     // This function would be called from python's `plast.ops.squeeze`
     m.def(
         "squeeze_op_node",
-        [](std::shared_ptr<plast::graph::Node> input, size_t N, size_t M)
+        [](std::shared_ptr<plast::graph::Node> input, int N)
         {
-            auto op = std::make_shared<plast::ops::SqueezeOperation>(N, M);
+            auto op = std::make_shared<plast::ops::SqueezeOperation>(N);
             return std::make_shared<plast::graph::Node>(
                 op, std::vector<std::shared_ptr<plast::graph::Node>>{input});
         },
-        py::arg("input"), py::arg("N"), py::arg("M"));
+        py::arg("input"), py::arg("N"));
 
     // This function would be called from python's `plast.ops.unsqueeze`
     m.def(

@@ -79,4 +79,3 @@ void plast_cpu_matmul_kernel_int32(int32_t* out, const int32_t* in1, const int32
         }
     }
 }
-

@@ -26,30 +26,20 @@ LeakyReluOperation::execute_cpu(const std::vector<const tensor::Tensor*>& inputs
     // Allocate output tensor
     tensor::Tensor output(input.shape(), dtype, core::DeviceType::CPU);
 
-    bool input_contiguous = input.is_contiguous();
-
     // Dispatch to type-specific C CPU kernel
-    if (input_contiguous)
+    switch (dtype)
     {
-        switch (dtype)
-        {
-        case core::DType::FLOAT32:
-            plast_cpu_leaky_relu_kernel_float(output.data_as<float>(), input.data_as<const float>(),
-                                              num_elements, alpha_);
-            break;
-        case core::DType::INT32:
-            plast_cpu_leaky_relu_kernel_int32(output.data_as<int32_t>(),
-                                              input.data_as<const int32_t>(), num_elements, alpha_);
-            break;
-        // Add more types as needed
-        default:
-            throw std::runtime_error("Unsupported DType for LeakyRelu operation on CPU.");
-        }
-    }
-    else
-    {
-        throw std::runtime_error(
-            "LeakyRelu operation on CPU does not yet support non-contiguous inputs.");
+    case core::DType::FLOAT32:
+        plast_cpu_leaky_relu_kernel_float(output.data_as<float>(), input.data_as<const float>(),
+                                          num_elements, alpha_);
+        break;
+    case core::DType::INT32:
+        plast_cpu_leaky_relu_kernel_int32(output.data_as<int32_t>(), input.data_as<const int32_t>(),
+                                          num_elements, alpha_);
+        break;
+    // Add more types as needed
+    default:
+        throw std::runtime_error("Unsupported DType for LeakyRelu operation on CPU.");
     }
 
     return output;

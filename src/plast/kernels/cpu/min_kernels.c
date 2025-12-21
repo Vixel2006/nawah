@@ -28,8 +28,6 @@ static void calculate_strides(const size_t* shape, size_t ndim, size_t* strides)
     }
 }
 
-
-
 // --- Full Reduction Kernels (float) ---
 
 void plast_cpu_min_full_reduction_float(const float* input_data, float* output_data,
@@ -52,8 +50,6 @@ void plast_cpu_min_full_reduction_float(const float* input_data, float* output_d
     }
     output_data[0] = min_val;
 }
-
-
 
 // --- Full Reduction Kernels (int32) ---
 
@@ -78,61 +74,52 @@ void plast_cpu_min_full_reduction_int32(const int32_t* input_data, int32_t* outp
     output_data[0] = min_val;
 }
 
-
-
 // --- Reduction along a dimension kernels (float) ---
 
 void plast_cpu_min_reduction_dim_float(const float* input_data, float* output_data,
                                        const size_t* input_shape, size_t input_ndim,
                                        const size_t* output_shape, size_t output_ndim, int dim)
 {
-    size_t input_strides[input_ndim];
-    calculate_strides(input_shape, input_ndim, input_strides);
-
-    size_t output_strides[output_ndim];
-    calculate_strides(output_shape, output_ndim, output_strides);
-
-    size_t reduction_size = input_shape[dim];
-
-    size_t output_total_elements = calculate_total_elements(output_shape, output_ndim);
-
-    for (size_t out_flat_idx = 0; out_flat_idx < output_total_elements; ++out_flat_idx)
+    size_t reduction_dim_size = input_shape[dim];
+    size_t outer_size = 1;
+    for (size_t i = 0; i < dim; ++i)
     {
-        size_t current_input_base_idx = 0;
-        size_t temp_out_flat_idx = out_flat_idx;
-        size_t current_output_dim_idx = 0;
+        outer_size *= input_shape[i];
+    }
+    size_t inner_size = 1;
+    for (size_t i = dim + 1; i < input_ndim; ++i)
+    {
+        inner_size *= input_shape[i];
+    }
 
-        for (size_t i = 0; i < input_ndim; ++i)
+    for (size_t outer_idx = 0; outer_idx < outer_size; ++outer_idx)
+    {
+        for (size_t inner_idx = 0; inner_idx < inner_size; ++inner_idx)
         {
-            if (i == dim)
+            float min_val = FLT_MAX;
+            for (size_t k = 0; k < reduction_dim_size; ++k)
             {
-                // Skip the reduced dimension for base index calculation
+                size_t input_idx =
+                    outer_idx * reduction_dim_size * inner_size + k * inner_size + inner_idx;
+                if (input_data[input_idx] < min_val)
+                {
+                    min_val = input_data[input_idx];
+                }
+            }
+            bool keepdim = (input_ndim == output_ndim);
+            size_t output_idx;
+            if (keepdim)
+            {
+                output_idx = outer_idx * 1 * inner_size + inner_idx;
             }
             else
             {
-                size_t coord_in_this_dim =
-                    (temp_out_flat_idx / output_strides[current_output_dim_idx]) %
-                    output_shape[current_output_dim_idx];
-                current_input_base_idx += coord_in_this_dim * input_strides[i];
-                current_output_dim_idx++;
+                output_idx = outer_idx * inner_size + inner_idx;
             }
+            output_data[output_idx] = min_val;
         }
-
-        float current_min = FLT_MAX;
-
-        for (size_t k = 0; k < reduction_size; ++k)
-        {
-            size_t input_idx = current_input_base_idx + k * input_strides[dim];
-            if (input_data[input_idx] < current_min)
-            {
-                current_min = input_data[input_idx];
-            }
-        }
-        output_data[out_flat_idx] = current_min;
     }
 }
-
-
 
 // --- Reduction along a dimension kernels (int32) ---
 
@@ -140,50 +127,43 @@ void plast_cpu_min_reduction_dim_int32(const int32_t* input_data, int32_t* outpu
                                        const size_t* input_shape, size_t input_ndim,
                                        const size_t* output_shape, size_t output_ndim, int dim)
 {
-    size_t input_strides[input_ndim];
-    calculate_strides(input_shape, input_ndim, input_strides);
-
-    size_t output_strides[output_ndim];
-    calculate_strides(output_shape, output_ndim, output_strides);
-
-    size_t reduction_size = input_shape[dim];
-
-    size_t output_total_elements = calculate_total_elements(output_shape, output_ndim);
-
-    for (size_t out_flat_idx = 0; out_flat_idx < output_total_elements; ++out_flat_idx)
+    size_t reduction_dim_size = input_shape[dim];
+    size_t outer_size = 1;
+    for (size_t i = 0; i < dim; ++i)
     {
-        size_t current_input_base_idx = 0;
-        size_t temp_out_flat_idx = out_flat_idx;
-        size_t current_output_dim_idx = 0;
+        outer_size *= input_shape[i];
+    }
+    size_t inner_size = 1;
+    for (size_t i = dim + 1; i < input_ndim; ++i)
+    {
+        inner_size *= input_shape[i];
+    }
 
-        for (size_t i = 0; i < input_ndim; ++i)
+    for (size_t outer_idx = 0; outer_idx < outer_size; ++outer_idx)
+    {
+        for (size_t inner_idx = 0; inner_idx < inner_size; ++inner_idx)
         {
-            if (i == dim)
+            int32_t min_val = INT32_MAX;
+            for (size_t k = 0; k < reduction_dim_size; ++k)
             {
-                // Skip the reduced dimension for base index calculation
+                size_t input_idx =
+                    outer_idx * reduction_dim_size * inner_size + k * inner_size + inner_idx;
+                if (input_data[input_idx] < min_val)
+                {
+                    min_val = input_data[input_idx];
+                }
+            }
+            bool keepdim = (input_ndim == output_ndim);
+            size_t output_idx;
+            if (keepdim)
+            {
+                output_idx = outer_idx * 1 * inner_size + inner_idx;
             }
             else
             {
-                size_t coord_in_this_dim =
-                    (temp_out_flat_idx / output_strides[current_output_dim_idx]) %
-                    output_shape[current_output_dim_idx];
-                current_input_base_idx += coord_in_this_dim * input_strides[i];
-                current_output_dim_idx++;
+                output_idx = outer_idx * inner_size + inner_idx;
             }
+            output_data[output_idx] = min_val;
         }
-
-        int32_t current_min = INT32_MAX;
-
-        for (size_t k = 0; k < reduction_size; ++k)
-        {
-            size_t input_idx = current_input_base_idx + k * input_strides[dim];
-            if (input_data[input_idx] < current_min)
-            {
-                current_min = input_data[input_idx];
-            }
-        }
-        output_data[out_flat_idx] = current_min;
     }
 }
-
-

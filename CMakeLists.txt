@@ -89,6 +89,46 @@ add_library(plast_cpp_core_lib STATIC
     src/plast/kernels/cpu/max_kernels.c
     src/plast/kernels/cpu/broadcast_kernels.c   # New CPU broadcast kernel
     src/plast/kernels/cpu/expand_kernels.c      # New CPU expand kernel
+    src/plast/kernels/cpu/abs_backward_kernels.c
+    src/plast/kernels/cpu/add_backward_kernels.c
+    src/plast/kernels/cpu/broadcast_backward_kernels.c
+    src/plast/kernels/cpu/exp_backward_kernels.c
+    src/plast/kernels/cpu/expand_backward_kernels.c
+    src/plast/kernels/cpu/init_backward_kernels.c
+    src/plast/kernels/cpu/leaky_relu_backward_kernels.c
+    src/plast/kernels/cpu/log_backward_kernels.c
+    src/plast/kernels/cpu/matmul_backward_kernels.c
+    src/plast/kernels/cpu/max_backward_kernels.c
+    src/plast/kernels/cpu/mean_backward_kernels.c
+    src/plast/kernels/cpu/min_backward_kernels.c
+    src/plast/kernels/cpu/mul_backward_kernels.c
+    src/plast/kernels/cpu/relu_backward_kernels.c
+    src/plast/kernels/cpu/squeeze_backward_kernels.c
+    src/plast/kernels/cpu/sub_backward_kernels.c
+    src/plast/kernels/cpu/sum_backward_kernels.c
+    src/plast/kernels/cpu/transpose_kernels.c
+    src/plast/kernels/cpu/unsqueeze_backward_kernels.c
+    src/plast/kernels/cpu/view_backward_kernels.c
+    src/plast/kernels/cuda/abs_backward_kernels.cu
+    src/plast/kernels/cuda/add_backward_kernels.cu
+    src/plast/kernels/cuda/broadcast_backward_kernels.cu
+    src/plast/kernels/cuda/exp_backward_kernels.cu
+    src/plast/kernels/cuda/expand_backward_kernels.cu
+    src/plast/kernels/cuda/init_backward_kernels.cu
+    src/plast/kernels/cuda/leaky_relu_backward_kernels.cu
+    src/plast/kernels/cuda/log_backward_kernels.cu
+    src/plast/kernels/cuda/matmul_backward_kernels.cu
+    src/plast/kernels/cuda/max_backward_kernels.cu
+    src/plast/kernels/cuda/mean_backward_kernels.cu
+    src/plast/kernels/cuda/min_backward_kernels.cu
+    src/plast/kernels/cuda/mul_backward_kernels.cu
+    src/plast/kernels/cuda/relu_backward_kernels.cu
+    src/plast/kernels/cuda/squeeze_backward_kernels.cu
+    src/plast/kernels/cuda/sub_backward_kernels.cu
+    src/plast/kernels/cuda/sum_backward_kernels.cu
+    src/plast/kernels/cuda/transpose_kernels.cu
+    src/plast/kernels/cuda/unsqueeze_backward_kernels.cu
+    src/plast/kernels/cuda/view_backward_kernels.cu
     src/plast/ops/init/init.cpp
 )
 
@@ -108,7 +148,12 @@ target_link_libraries(plast_cpp_core_lib PRIVATE
 )
 
 # Set compile options for the C++ core library
-target_compile_options(plast_cpp_core_lib PRIVATE -mavx2 -mfma -march=native -mno-avx512f -mno-avx512vl)
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=haswell")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=haswell")
+
+target_compile_options(plast_cpp_core_lib PRIVATE
+    -mavx2 -mfma
+)
 set_target_properties(plast_cpp_core_lib PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 set_target_properties(plast_cpp_core_lib PROPERTIES CUDA_VISIBILITY_PRESET default)
 set_property(TARGET plast_cpp_core_lib PROPERTY POSITION_INDEPENDENT_CODE ON)

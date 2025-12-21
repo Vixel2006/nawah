@@ -1,6 +1,8 @@
 #include "plast/ops/movement/expand.h"
 #include "plast/kernels/cpu/expand_kernels.h"  // New include
 #include "plast/kernels/cuda/expand_kernels.h" // New include
+#include "plast/kernels/cpu/movement_backward_kernels.h"
+#include "plast/kernels/cuda/movement_backward_kernels.h"
 #include "plast/tensor/tensor.h"               // For get_dtype_size
 
 #include <numeric>
@@ -104,10 +106,25 @@ ExpandOperation::backward_cpu(const tensor::Tensor& grad_output, const tensor::T
     // Gradient for input
     if (input->requires_grad())
     {
-        // The backward of expand is sum over the expanded dimensions.
-        // The grad_output needs to be reduced back to the original input's shape.
-        throw std::runtime_error(
-            "Expand backward_cpu: Gradient for input not yet implemented (requires reduction).");
+        // Create a new tensor for the gradient of the input
+        tensor::Tensor grad_input(input->shape(), input->dtype(), input->device());
+        std::memset(grad_input.data(), 0, grad_input.nbytes()); // Initialize to zeros
+
+        // Get raw pointers and sizes for the kernel
+        void* grad_in_data = grad_input.data();
+        const void* grad_out_data = grad_output.data();
+        size_t item_size = plast::tensor::get_dtype_size(input->dtype());
+
+        // Convert std::vector to C-style arrays for kernel
+        std::vector<size_t> grad_out_shape_vec = grad_output.shape();
+        std::vector<size_t> grad_out_strides_vec = grad_output.strides();
+        std::vector<size_t> input_shape_vec = input->shape();
+
+        cpu_expand_backward_kernel(grad_in_data, grad_out_data, grad_out_shape_vec.data(),
+                                   grad_out_strides_vec.data(), grad_out_shape_vec.size(),
+                                   input_shape_vec.data(), input_shape_vec.size(), item_size);
+
+        input_grads.push_back(std::move(grad_input));
     }
     else
     {
@@ -137,10 +154,25 @@ ExpandOperation::backward_cuda(const tensor::Tensor& grad_output, const tensor::
     // Gradient for input
     if (input->requires_grad())
     {
-        // The backward of expand is sum over the expanded dimensions.
-        // The grad_output needs to be reduced back to the original input's shape.
-        throw std::runtime_error(
-            "Expand backward_cuda: Gradient for input not yet implemented (requires reduction).");
+        // Create a new tensor for the gradient of the input
+        tensor::Tensor grad_input(input->shape(), input->dtype(), input->device());
+        PLAST_CUDA_CHECK(cudaMemset(grad_input.data(), 0, grad_input.nbytes())); // Initialize to zeros
+
+        // Get raw pointers and sizes for the kernel
+        void* grad_in_data = grad_input.data();
+        const void* grad_out_data = grad_output.data();
+        size_t item_size = plast::tensor::get_dtype_size(input->dtype());
+
+        // Convert std::vector to C-style arrays for kernel
+        std::vector<size_t> grad_out_shape_vec = grad_output.shape();
+        std::vector<size_t> grad_out_strides_vec = grad_output.strides();
+        std::vector<size_t> input_shape_vec = input->shape();
+
+        cuda_expand_backward_kernel(grad_in_data, grad_out_data, grad_out_shape_vec.data(),
+                                    grad_out_strides_vec.data(), grad_out_shape_vec.size(),
+                                    input_shape_vec.data(), input_shape_vec.size(), item_size);
+
+        input_grads.push_back(std::move(grad_input));
     }
     else
     {

@@ -27,8 +27,6 @@ void plast_cpu_exp_kernel_float(float* out, const float* in, size_t num_elements
     }
 }
 
-
-
 void plast_cpu_exp_kernel_int32(int32_t* out, const int32_t* in, size_t num_elements)
 {
     for (size_t i = 0; i < num_elements; ++i)

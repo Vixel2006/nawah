@@ -2,11 +2,10 @@
 #include "plast/core/device_management.h"
 #include "plast/core/shape_utils_cpp.h" // Added for strided operations
 #include "plast/core/types.h"
+#include "plast/kernels/cpu/reduction_backward_kernels.h"
 #include "plast/kernels/cpu/reduction_kernels.h"
+#include "plast/kernels/cuda/reduction_backward_kernels.h"
 #include "plast/kernels/cuda/reduction_kernels.h"
-#ifdef PLAST_CUDA_ENABLED
-#include "plast/kernels/cuda/reduction_kernels.h" // New include for CUDA kernels
-#endif
 
 #include <cstring>
 #include <numeric>
@@ -27,14 +26,6 @@ tensor::Tensor SumOperation::execute_cpu(const std::vector<const tensor::Tensor*
 
     // Allocate output tensor
     tensor::Tensor output(output_shape_vec, dtype, core::DeviceType::CPU);
-
-    bool input_contiguous = input.is_contiguous();
-
-    if (!input_contiguous)
-    {
-        throw std::runtime_error(
-            "Sum operation on CPU does not yet support non-contiguous inputs.");
-    }
 
     // Dispatch to type-specific C CPU kernel
     switch (dtype)
@@ -86,14 +77,6 @@ tensor::Tensor SumOperation::execute_cuda(const std::vector<const tensor::Tensor
 
     // Allocate output tensor on CUDA device
     tensor::Tensor output(output_shape_vec, dtype, core::DeviceType::CUDA);
-
-    bool input_contiguous = input.is_contiguous();
-
-    if (!input_contiguous)
-    {
-        throw std::runtime_error(
-            "Sum operation on CUDA does not yet support non-contiguous inputs.");
-    }
 
     // Dispatch to type-specific CUDA kernel
     switch (dtype)
@@ -152,12 +135,46 @@ SumOperation::backward_cpu(const tensor::Tensor& grad_output, const tensor::Tens
     // Gradient for input
     if (input->requires_grad())
     {
-        // The gradient of sum(x) with respect to x is 1 for all elements.
-        // If it's a full reduction, grad_input will be a tensor of ones with the shape of the
-        // input, scaled by grad_output (which is a scalar in this case). If it's a reduction along
-        // a dimension, grad_input will be broadcasted grad_output.
-        throw std::runtime_error(
-            "Sum backward_cpu: Gradient for input not yet implemented (requires broadcasting).");
+        tensor::Tensor grad_input(input->shape(), input->dtype(), input->device());
+        std::memset(grad_input.data(), 0, grad_input.nbytes()); // Initialize to zeros
+
+        // Dispatch to type-specific C CPU kernel
+        switch (input->dtype())
+        {
+        case core::DType::FLOAT32:
+            if (full_reduction_)
+            {
+                plast_cpu_sum_full_reduction_backward_float(
+                    grad_input.data_as<float>(), grad_output.data_as<const float>(),
+                    inputs[0]->shape().data(), inputs[0]->shape().size());
+            }
+            else
+            {
+                plast_cpu_sum_reduction_dim_backward_float(
+                    grad_input.data_as<float>(), grad_output.data_as<const float>(),
+                    inputs[0]->shape().data(), inputs[0]->shape().size(), output.shape().data(),
+                    output.shape().size(), dim_);
+            }
+            break;
+        case core::DType::INT32:
+            if (full_reduction_)
+            {
+                plast_cpu_sum_full_reduction_backward_int32(
+                    grad_input.data_as<int32_t>(), grad_output.data_as<const int32_t>(),
+                    inputs[0]->shape().data(), inputs[0]->shape().size());
+            }
+            else
+            {
+                plast_cpu_sum_reduction_dim_backward_int32(
+                    grad_input.data_as<int32_t>(), grad_output.data_as<const int32_t>(),
+                    inputs[0]->shape().data(), inputs[0]->shape().size(), output.shape().data(),
+                    output.shape().size(), dim_);
+            }
+            break;
+        default:
+            throw std::runtime_error("Unsupported DType for Sum backward on CPU.");
+        }
+        input_grads.push_back(std::move(grad_input));
     }
     else
     {
@@ -187,12 +204,43 @@ SumOperation::backward_cuda(const tensor::Tensor& grad_output, const tensor::Ten
     // Gradient for input
     if (input->requires_grad())
     {
-        // The gradient of sum(x) with respect to x is 1 for all elements.
-        // If it's a full reduction, grad_input will be a tensor of ones with the shape of the
-        // input, scaled by grad_output (which is a scalar in this case). If it's a reduction along
-        // a dimension, grad_input will be broadcasted grad_output.
-        throw std::runtime_error(
-            "Sum backward_cuda: Gradient for input not yet implemented (requires broadcasting).");
+        tensor::Tensor grad_input(input->shape(), input->dtype(), input->device());
+        PLAST_CUDA_CHECK(
+            cudaMemset(grad_input.data(), 0, grad_input.nbytes())); // Initialize to zeros
+
+        // Dispatch to type-specific C CUDA kernel
+        switch (input->dtype())
+        {
+        case core::DType::FLOAT32:
+            if (full_reduction_)
+            {
+                plast_cuda_sum_full_reduction_backward_float(
+                    grad_input.data_as<float>(), grad_output.data_as<const float>(),
+                    inputs[0]->shape().data(), inputs[0]->shape().size());
+            }
+            else
+            {
+                throw std::runtime_error(
+                    "CUDA Sum reduction dim float backward operation not yet implemented.");
+            }
+            break;
+        case core::DType::INT32:
+            if (full_reduction_)
+            {
+                plast_cuda_sum_full_reduction_backward_int32(
+                    grad_input.data_as<int32_t>(), grad_output.data_as<const int32_t>(),
+                    inputs[0]->shape().data(), inputs[0]->shape().size());
+            }
+            else
+            {
+                throw std::runtime_error(
+                    "CUDA Sum reduction dim int32 backward operation not yet implemented.");
+            }
+            break;
+        default:
+            throw std::runtime_error("Unsupported DType for Sum backward on CUDA.");
+        }
+        input_grads.push_back(std::move(grad_input));
     }
     else
     {

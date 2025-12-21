@@ -53,7 +53,6 @@ size_t get_dtype_size(core::DType dtype)
     }
 }
 
-// Helper to calculate contiguous strides (moved from .h to .cpp)
 std::vector<size_t> calculate_contiguous_strides(const std::vector<size_t>& shape)
 {
     std::vector<size_t> strides(shape.size());
@@ -84,7 +83,6 @@ void increment_coords(std::vector<size_t>& coords, const std::vector<size_t>& sh
     }
 }
 
-// Constructor for creating a new tensor with allocated memory (contiguous strides)
 Tensor::Tensor(const std::vector<size_t>& shape, core::DType dtype, core::DeviceType device)
     : shape_(shape), dtype_(dtype)
 {
@@ -93,18 +91,6 @@ Tensor::Tensor(const std::vector<size_t>& shape, core::DType dtype, core::Device
         shape_.push_back(1); // Scalar tensor
     }
     strides_ = calculate_contiguous_strides(shape_);
-    size_t bytes = num_elements() * get_dtype_size(dtype_);
-    buffer_ = std::make_shared<core::DataBuffer>(bytes, device);
-}
-
-Tensor::Tensor(const std::vector<size_t>& shape, const std::vector<size_t>& strides,
-               core::DType dtype, core::DeviceType device)
-    : shape_(shape), strides_(strides), dtype_(dtype)
-{
-    if (shape.empty())
-    {
-        shape_.push_back(1);
-    }
     size_t bytes = num_elements() * get_dtype_size(dtype_);
     buffer_ = std::make_shared<core::DataBuffer>(bytes, device);
 }
@@ -184,25 +170,6 @@ size_t Tensor::nbytes() const
     return buffer_->nbytes();
 }
 
-bool Tensor::is_contiguous() const
-{
-    if (shape_.empty())
-    {
-        return true; // Scalar is contiguous
-    }
-
-    size_t expected_stride = 1;
-    for (int i = shape_.size() - 1; i >= 0; --i)
-    {
-        if (strides_[i] != expected_stride)
-        {
-            return false;
-        }
-        expected_stride *= shape_[i];
-    }
-    return true;
-}
-
 Tensor Tensor::to(core::DeviceType target_device) const
 {
     if (device() == target_device)
@@ -212,12 +179,6 @@ Tensor Tensor::to(core::DeviceType target_device) const
 
     const Tensor* source_tensor_ptr = this;      // Assume *this is the source initially
     std::unique_ptr<Tensor> owned_cloned_tensor; // Use unique_ptr for optional ownership
-
-    if (!is_contiguous())
-    {
-        owned_cloned_tensor = std::make_unique<Tensor>(clone()); // Clone if not contiguous
-        source_tensor_ptr = owned_cloned_tensor.get();           // Point to the cloned tensor
-    }
 
     // Create a new tensor on the target device
     Tensor new_tensor(source_tensor_ptr->shape_, source_tensor_ptr->dtype_, target_device);
@@ -274,54 +235,22 @@ Tensor Tensor::clone() const
     // Create a new contiguous tensor with the same shape, dtype, and device
     Tensor new_tensor(shape_, dtype_, device());
 
-    if (is_contiguous())
+    // If the input tensor is contiguous, a simple data copy is sufficient
+    size_t bytes = nbytes();
+    if (bytes > 0)
     {
-        // If the input tensor is contiguous, a simple data copy is sufficient
-        size_t bytes = nbytes();
-        if (bytes > 0)
-        {
-            if (device() == core::DeviceType::CPU)
-            {
-                std::memcpy(new_tensor.data(), data(), bytes);
-            }
-            else if (device() == core::DeviceType::CUDA)
-            {
-#ifdef PLAST_CUDA_ENABLED
-                PLAST_CUDA_CHECK(
-                    cudaMemcpy(new_tensor.data(), data(), bytes, cudaMemcpyDeviceToDevice));
-#else
-                throw std::runtime_error("CUDA is not enabled. Cannot perform CUDA memcpy.");
-#endif
-            }
-        }
-    }
-    else
-    {
-        // If not contiguous, use strided copy
         if (device() == core::DeviceType::CPU)
         {
-            size_t num_elements_ = num_elements();
-            size_t item_size = get_dtype_size(dtype_);
-
-            char* src_data = static_cast<char*>(data());
-            char* dst_data = static_cast<char*>(new_tensor.data());
-
-            std::vector<size_t> current_coords(shape_.size(), 0);
-            for (size_t i = 0; i < num_elements_; ++i)
-            {
-                size_t src_offset = 0;
-                for (size_t dim = 0; dim < shape_.size(); ++dim)
-                {
-                    src_offset += current_coords[dim] * strides_[dim];
-                }
-                std::memcpy(dst_data + i * item_size, src_data + src_offset * item_size, item_size);
-                increment_coords(current_coords, shape_);
-            }
+            std::memcpy(new_tensor.data(), data(), bytes);
         }
         else if (device() == core::DeviceType::CUDA)
         {
-            throw std::runtime_error(
-                "Non-contiguous CUDA clone is not supported without strided copy kernels.");
+#ifdef PLAST_CUDA_ENABLED
+            PLAST_CUDA_CHECK(
+                cudaMemcpy(new_tensor.data(), data(), bytes, cudaMemcpyDeviceToDevice));
+#else
+            throw std::runtime_error("CUDA is not enabled. Cannot perform CUDA memcpy.");
+#endif
         }
     }
     return new_tensor;

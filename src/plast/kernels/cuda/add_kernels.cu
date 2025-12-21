@@ -29,8 +29,6 @@ extern "C" void plast_cuda_add_kernel_float(float* out, const float* in1, const 
     }
 }
 
-
-
 __global__ void add_cuda_kernel_int32_kernel(int32_t* out, const int32_t* in1, const int32_t* in2,
                                              size_t num_elements)
 {
@@ -57,5 +55,3 @@ extern "C" void plast_cuda_add_kernel_int32(int32_t* out, const int32_t* in1, co
         fprintf(stderr, "CUDA error in plast_cuda_add_kernel_int32: %s\n", cudaGetErrorString(err));
     }
 }
-
-

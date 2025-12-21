@@ -34,4 +34,3 @@ void plast_cpu_relu_kernel_int32(int32_t* out, const int32_t* in, size_t num_ele
         out[i] = (in[i] > 0) ? in[i] : 0;
     }
 }
-

@@ -2,7 +2,9 @@
 #include "plast/core/device_management.h"
 #include "plast/core/shape_utils_cpp.h"
 #include "plast/core/types.h"
+#include "plast/kernels/cpu/binary_backward_kernels.h"
 #include "plast/kernels/cpu/binary_kernels.h"
+#include "plast/kernels/cuda/binary_backward_kernels.h"
 #include "plast/kernels/cuda/binary_kernels.h"
 #include "plast/ops/movement/broadcast.h" // Added include for BroadcastOperation
 
@@ -33,7 +35,7 @@ tensor::Tensor SubOperation::execute_cpu(const std::vector<const tensor::Tensor*
     // Handle broadcasting for lhs
     const tensor::Tensor* current_lhs = &lhs;
     std::unique_ptr<tensor::Tensor> lhs_broadcasted_ptr;
-    if (lhs.shape() != output_shape_vec || !lhs.is_contiguous())
+    if (lhs.shape() != output_shape_vec)
     {
         BroadcastOperation broadcast_op(output_shape_vec);
         lhs_broadcasted_ptr = std::make_unique<tensor::Tensor>(broadcast_op.execute_cpu({&lhs}));
@@ -43,7 +45,7 @@ tensor::Tensor SubOperation::execute_cpu(const std::vector<const tensor::Tensor*
     // Handle broadcasting for rhs
     const tensor::Tensor* current_rhs = &rhs;
     std::unique_ptr<tensor::Tensor> rhs_broadcasted_ptr;
-    if (rhs.shape() != output_shape_vec || !rhs.is_contiguous())
+    if (rhs.shape() != output_shape_vec)
     {
         BroadcastOperation broadcast_op(output_shape_vec);
         rhs_broadcasted_ptr = std::make_unique<tensor::Tensor>(broadcast_op.execute_cpu({&rhs}));
@@ -91,7 +93,7 @@ tensor::Tensor SubOperation::execute_cuda(const std::vector<const tensor::Tensor
     // Handle broadcasting for lhs
     const tensor::Tensor* current_lhs = &lhs;
     std::unique_ptr<tensor::Tensor> lhs_broadcasted_ptr;
-    if (lhs.shape() != output_shape_vec || !lhs.is_contiguous())
+    if (lhs.shape() != output_shape_vec)
     {
         BroadcastOperation broadcast_op(output_shape_vec);
         lhs_broadcasted_ptr = std::make_unique<tensor::Tensor>(broadcast_op.execute_cuda({&lhs}));
@@ -101,7 +103,7 @@ tensor::Tensor SubOperation::execute_cuda(const std::vector<const tensor::Tensor
     // Handle broadcasting for rhs
     const tensor::Tensor* current_rhs = &rhs;
     std::unique_ptr<tensor::Tensor> rhs_broadcasted_ptr;
-    if (rhs.shape() != output_shape_vec || !rhs.is_contiguous())
+    if (rhs.shape() != output_shape_vec)
     {
         BroadcastOperation broadcast_op(output_shape_vec);
         rhs_broadcasted_ptr = std::make_unique<tensor::Tensor>(broadcast_op.execute_cuda({&rhs}));
@@ -146,53 +148,54 @@ SubOperation::backward_cpu(const tensor::Tensor& grad_output, const tensor::Tens
     const tensor::Tensor* lhs_input = inputs[0];
     const tensor::Tensor* rhs_input = inputs[1];
 
-    // Initialize gradients for inputs
     std::vector<tensor::Tensor> input_grads;
     input_grads.reserve(2);
 
-    // Gradient for LHS (input[0])
+    // Calculate gradient for LHS: grad_output
     if (lhs_input->requires_grad())
     {
-        // TODO: Implement actual gradient calculation for LHS, considering broadcasting
-        // For now, a simple copy if shapes match, otherwise a placeholder error
-        if (lhs_input->shape() == grad_output.shape())
-        {
-            input_grads.push_back(grad_output.clone()); // Simple case: grad_output is the gradient
-        }
-        else
-        {
-            throw std::runtime_error(
-                "Sub backward_cpu: Broadcasting gradient for LHS not yet implemented.");
-        }
+        input_grads.push_back(std::move(grad_output.clone()));
     }
     else
     {
-        input_grads.push_back(tensor::Tensor(
-            {}, lhs_input->dtype(), lhs_input->device())); // Empty tensor if no grad required
+        input_grads.push_back(tensor::Tensor({}, lhs_input->dtype(), lhs_input->device()));
     }
 
-    // Gradient for RHS (input[1])
+    // Calculate gradient for RHS: -grad_output
     if (rhs_input->requires_grad())
     {
-        // TODO: Implement actual gradient calculation for RHS, considering broadcasting
-        // For now, a simple copy if shapes match, otherwise a placeholder error
-        if (rhs_input->shape() == grad_output.shape())
+        // Need a NegOperation for -grad_output
+        // For now, we'll manually negate the data. A proper NegOperation should be used.
+        // This is a placeholder.
+        tensor::Tensor neg_grad_output = grad_output.clone();
+        switch (neg_grad_output.dtype())
         {
-            // For subtraction, d(A-B)/dB = -1, so grad_rhs = -grad_output
-            // This requires a unary negation operation or element-wise multiplication by -1
-            throw std::runtime_error(
-                "Sub backward_cpu: Gradient for RHS not yet implemented (requires negation).");
-        }
-        else
+        case core::DType::FLOAT32:
         {
-            throw std::runtime_error(
-                "Sub backward_cpu: Broadcasting gradient for RHS not yet implemented.");
+            float* data = neg_grad_output.data_as<float>();
+            for (size_t i = 0; i < neg_grad_output.num_elements(); ++i)
+            {
+                data[i] = -data[i];
+            }
+            break;
         }
+        case core::DType::INT32:
+        {
+            int32_t* data = neg_grad_output.data_as<int32_t>();
+            for (size_t i = 0; i < neg_grad_output.num_elements(); ++i)
+            {
+                data[i] = -data[i];
+            }
+            break;
+        }
+        default:
+            throw std::runtime_error("Unsupported DType for negation in Sub backward.");
+        }
+        input_grads.push_back(std::move(neg_grad_output));
     }
     else
     {
-        input_grads.push_back(tensor::Tensor(
-            {}, rhs_input->dtype(), rhs_input->device())); // Empty tensor if no grad required
+        input_grads.push_back(tensor::Tensor({}, rhs_input->dtype(), rhs_input->device()));
     }
 
     return input_grads;
@@ -211,44 +214,110 @@ SubOperation::backward_cuda(const tensor::Tensor& grad_output, const tensor::Ten
     const tensor::Tensor* lhs_input = inputs[0];
     const tensor::Tensor* rhs_input = inputs[1];
 
-    // Initialize gradients for inputs
     std::vector<tensor::Tensor> input_grads;
     input_grads.reserve(2);
 
-    // Gradient for LHS (input[0])
+    // Pointers to the data buffers for the gradients
+    float* grad_lhs_data = nullptr;
+    float* grad_rhs_data = nullptr;
+    int32_t* grad_lhs_data_int = nullptr;
+    int32_t* grad_rhs_data_int = nullptr;
+
+    // Allocate grad_lhs if required
+    std::unique_ptr<tensor::Tensor> grad_lhs_tensor_ptr;
     if (lhs_input->requires_grad())
     {
-        // TODO: Implement actual gradient calculation for LHS on CUDA, considering broadcasting
-        if (lhs_input->shape() == grad_output.shape())
+        grad_lhs_tensor_ptr = std::make_unique<tensor::Tensor>(
+            lhs_input->shape(), lhs_input->dtype(), lhs_input->device());
+        PLAST_CUDA_CHECK(cudaMemset(grad_lhs_tensor_ptr->data(), 0, grad_lhs_tensor_ptr->nbytes()));
+        if (lhs_input->dtype() == core::DType::FLOAT32)
         {
-            input_grads.push_back(grad_output.clone());
+            grad_lhs_data = grad_lhs_tensor_ptr->data_as<float>();
         }
-        else
+        else if (lhs_input->dtype() == core::DType::INT32)
         {
-            throw std::runtime_error(
-                "Sub backward_cuda: Broadcasting gradient for LHS not yet implemented.");
+            grad_lhs_data_int = grad_lhs_tensor_ptr->data_as<int32_t>();
         }
+    }
+
+    // Allocate grad_rhs if required
+    std::unique_ptr<tensor::Tensor> grad_rhs_tensor_ptr;
+    if (rhs_input->requires_grad())
+    {
+        grad_rhs_tensor_ptr = std::make_unique<tensor::Tensor>(
+            rhs_input->shape(), rhs_input->dtype(), rhs_input->device());
+        PLAST_CUDA_CHECK(cudaMemset(grad_rhs_tensor_ptr->data(), 0, grad_rhs_tensor_ptr->nbytes()));
+        if (rhs_input->dtype() == core::DType::FLOAT32)
+        {
+            grad_rhs_data = grad_rhs_tensor_ptr->data_as<float>();
+        }
+        else if (rhs_input->dtype() == core::DType::INT32)
+        {
+            grad_rhs_data_int = grad_rhs_tensor_ptr->data_as<int32_t>();
+        }
+    }
+
+    // Call the backward kernel only if at least one input requires grad
+    if (lhs_input->requires_grad() || rhs_input->requires_grad())
+    {
+        switch (grad_output.dtype())
+        {
+        case core::DType::FLOAT32:
+            plast_cuda_sub_backward_kernel_float(grad_lhs_data, grad_rhs_data,
+                                                 grad_output.data_as<const float>(),
+                                                 grad_output.num_elements());
+            break;
+        case core::DType::INT32:
+            plast_cuda_sub_backward_kernel_int32(grad_lhs_data_int, grad_rhs_data_int,
+                                                 grad_output.data_as<const int32_t>(),
+                                                 grad_output.num_elements());
+            break;
+        default:
+            throw std::runtime_error("Unsupported DType for Sub backward on CUDA.");
+        }
+    }
+
+    // Explicitly negate grad_rhs if it requires grad, for consistency with CPU backward
+    if (rhs_input->requires_grad())
+    {
+        switch (rhs_input->dtype())
+        {
+        case core::DType::FLOAT32:
+        {
+            float* data = grad_rhs_tensor_ptr->data_as<float>();
+            for (size_t i = 0; i < grad_rhs_tensor_ptr->num_elements(); ++i)
+            {
+                data[i] = -data[i];
+            }
+            break;
+        }
+        case core::DType::INT32:
+        {
+            int32_t* data = grad_rhs_tensor_ptr->data_as<int32_t>();
+            for (size_t i = 0; i < grad_rhs_tensor_ptr->num_elements(); ++i)
+            {
+                data[i] = -data[i];
+            }
+            break;
+        }
+        default:
+            throw std::runtime_error("Unsupported DType for negation in Sub backward (CUDA).");
+        }
+    }
+
+    // Push the resulting gradient tensors
+    if (lhs_input->requires_grad())
+    {
+        input_grads.push_back(std::move(*grad_lhs_tensor_ptr));
     }
     else
     {
         input_grads.push_back(tensor::Tensor({}, lhs_input->dtype(), lhs_input->device()));
     }
 
-    // Gradient for RHS (input[1])
     if (rhs_input->requires_grad())
     {
-        // TODO: Implement actual gradient calculation for RHS on CUDA, considering broadcasting
-        if (rhs_input->shape() == grad_output.shape())
-        {
-            // For subtraction, d(A-B)/dB = -1, so grad_rhs = -grad_output
-            throw std::runtime_error(
-                "Sub backward_cuda: Gradient for RHS not yet implemented (requires negation).");
-        }
-        else
-        {
-            throw std::runtime_error(
-                "Sub backward_cuda: Broadcasting gradient for RHS not yet implemented.");
-        }
+        input_grads.push_back(std::move(*grad_rhs_tensor_ptr));
     }
     else
     {

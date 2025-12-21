@@ -20,6 +20,10 @@ class ExecutionEngine
     // Executes the computation graph rooted at 'root_node'
     std::shared_ptr<tensor::Tensor> execute(std::shared_ptr<graph::Node> root_node);
 
+    // Computes gradients for the computation graph rooted at 'root_node'
+    void backward(std::shared_ptr<graph::Node> root_node,
+                  std::shared_ptr<tensor::Tensor> grad_output = nullptr);
+
   private:
     // Internal helper to perform topological sort
     std::vector<std::shared_ptr<graph::Node>>
@@ -30,6 +34,10 @@ class ExecutionEngine
                std::unordered_map<std::shared_ptr<graph::Node>, bool>& visited,
                std::unordered_map<std::shared_ptr<graph::Node>, bool>& in_stack,
                std::vector<std::shared_ptr<graph::Node>>& sorted_nodes);
+
+    // Internal helper to compute gradients for each node in the sorted list
+    void compute_gradients(std::vector<std::shared_ptr<graph::Node>>& sorted_nodes,
+                           std::shared_ptr<tensor::Tensor> grad_output);
 };
 
 } // namespace execution

@@ -1,4 +1,6 @@
 #include "plast/ops/movement/squeeze.h"
+#include "plast/kernels/cpu/movement_backward_kernels.h"
+#include "plast/kernels/cuda/movement_backward_kernels.h"
 
 #include <numeric>
 
@@ -18,15 +20,15 @@ tensor::Tensor SqueezeOperation::execute_cpu(const std::vector<const tensor::Ten
     std::vector<size_t> output_shape = input_tensor->shape();
     std::vector<size_t> output_strides = input_tensor->strides();
 
-    if (N >= output_shape.size())
+    if (N_ >= output_shape.size())
     {
         throw std::runtime_error("Squeeze dimension out of bounds.");
     }
 
-    if (output_shape[N] == 1)
+    if (output_shape[N_] == 1)
     {
-        output_shape.erase(output_shape.begin() + N);
-        output_strides.erase(output_strides.begin() + N);
+        output_shape.erase(output_shape.begin() + N_);
+        output_strides.erase(output_strides.begin() + N_);
     }
     else
     {
@@ -60,10 +62,29 @@ SqueezeOperation::backward_cpu(const tensor::Tensor& grad_output, const tensor::
     // Gradient for input
     if (input->requires_grad())
     {
-        // The backward of squeeze is unsqueeze.
-        // The grad_output needs to be unsqueezed back to the original input's shape.
-        throw std::runtime_error(
-            "Squeeze backward_cpu: Gradient for input not yet implemented (requires unsqueeze).");
+        // Create a new tensor for the gradient of the input
+        tensor::Tensor grad_input(input->shape(), input->dtype(), input->device());
+        std::memset(grad_input.data(), 0, grad_input.nbytes()); // Initialize to zeros
+
+        // Get raw pointers and sizes for the kernel
+        void* grad_in_data = grad_input.data();
+        const void* grad_out_data = grad_output.data();
+        size_t item_size = plast::tensor::get_dtype_size(input->dtype());
+
+        // Convert std::vector to C-style arrays for kernel
+        std::vector<size_t> grad_out_shape_vec = grad_output.shape();
+        std::vector<size_t> grad_out_strides_vec = grad_output.strides();
+        std::vector<size_t> input_shape_vec = input->shape();
+
+        int squeeze_dims_arr[] = {N_}; // The dimension that was squeezed
+        size_t num_squeeze_dims = 1;
+
+        cpu_unsqueeze_backward_kernel(grad_in_data, grad_out_data, grad_out_shape_vec.data(),
+                                      grad_out_strides_vec.data(), grad_out_shape_vec.size(),
+                                      input_shape_vec.data(), input_shape_vec.size(),
+                                      squeeze_dims_arr, num_squeeze_dims, item_size);
+
+        input_grads.push_back(std::move(grad_input));
     }
     else
     {
@@ -93,10 +114,29 @@ SqueezeOperation::backward_cuda(const tensor::Tensor& grad_output, const tensor:
     // Gradient for input
     if (input->requires_grad())
     {
-        // The backward of squeeze is unsqueeze.
-        // The grad_output needs to be unsqueezed back to the original input's shape.
-        throw std::runtime_error(
-            "Squeeze backward_cuda: Gradient for input not yet implemented (requires unsqueeze).");
+        // Create a new tensor for the gradient of the input
+        tensor::Tensor grad_input(input->shape(), input->dtype(), input->device());
+        PLAST_CUDA_CHECK(cudaMemset(grad_input.data(), 0, grad_input.nbytes())); // Initialize to zeros
+
+        // Get raw pointers and sizes for the kernel
+        void* grad_in_data = grad_input.data();
+        const void* grad_out_data = grad_output.data();
+        size_t item_size = plast::tensor::get_dtype_size(input->dtype());
+
+        // Convert std::vector to C-style arrays for kernel
+        std::vector<size_t> grad_out_shape_vec = grad_output.shape();
+        std::vector<size_t> grad_out_strides_vec = grad_output.strides();
+        std::vector<size_t> input_shape_vec = input->shape();
+
+        int squeeze_dims_arr[] = {N_}; // The dimension that was squeezed
+        size_t num_squeeze_dims = 1;
+
+        cuda_unsqueeze_backward_kernel(grad_in_data, grad_out_data, grad_out_shape_vec.data(),
+                                       grad_out_strides_vec.data(), grad_out_shape_vec.size(),
+                                       input_shape_vec.data(), input_shape_vec.size(),
+                                       squeeze_dims_arr, num_squeeze_dims, item_size);
+
+        input_grads.push_back(std::move(grad_input));
     }
     else
     {

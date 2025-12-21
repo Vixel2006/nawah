@@ -25,30 +25,20 @@ tensor::Tensor ReluOperation::execute_cpu(const std::vector<const tensor::Tensor
     // Allocate output tensor
     tensor::Tensor output(input.shape(), dtype, core::DeviceType::CPU);
 
-    bool input_contiguous = input.is_contiguous();
-
     // Dispatch to type-specific C CPU kernel
-    if (input_contiguous)
+    switch (dtype)
     {
-        switch (dtype)
-        {
-        case core::DType::FLOAT32:
-            plast_cpu_relu_kernel_float(output.data_as<float>(), input.data_as<const float>(),
-                                        num_elements);
-            break;
-        case core::DType::INT32:
-            plast_cpu_relu_kernel_int32(output.data_as<int32_t>(), input.data_as<const int32_t>(),
-                                        num_elements);
-            break;
-        // Add more types as needed
-        default:
-            throw std::runtime_error("Unsupported DType for Relu operation on CPU.");
-        }
-    }
-    else
-    {
-        throw std::runtime_error(
-            "Relu operation on CPU does not yet support non-contiguous inputs.");
+    case core::DType::FLOAT32:
+        plast_cpu_relu_kernel_float(output.data_as<float>(), input.data_as<const float>(),
+                                    num_elements);
+        break;
+    case core::DType::INT32:
+        plast_cpu_relu_kernel_int32(output.data_as<int32_t>(), input.data_as<const int32_t>(),
+                                    num_elements);
+        break;
+    // Add more types as needed
+    default:
+        throw std::runtime_error("Unsupported DType for Relu operation on CPU.");
     }
 
     return output;
@@ -68,14 +58,6 @@ tensor::Tensor ReluOperation::execute_cuda(const std::vector<const tensor::Tenso
 
     // Allocate output tensor on CUDA device
     tensor::Tensor output(input.shape(), dtype, core::DeviceType::CUDA);
-
-    bool input_contiguous = input.is_contiguous();
-
-    if (!input_contiguous)
-    {
-        throw std::runtime_error(
-            "Relu operation on CUDA does not yet support non-contiguous inputs.");
-    }
 
     // Dispatch to type-specific CUDA kernel
     switch (dtype)

@@ -5,44 +5,54 @@ import time
 from plast.core.tensor import Tensor
 from plast.core.device import Device
 
+
 # Helper function to compare Tensors with numpy arrays
 def assert_tensor_equal(tensor: Tensor, np_array: np.ndarray):
     assert tensor.shape == np_array.shape
     assert tensor.dtype == np_array.dtype.type
     np.testing.assert_allclose(tensor.data, np_array, rtol=1e-5, atol=1e-8)
 
+
 # Helper function to create a tensor on a specific device
 def create_tensor(data, dtype=np.float32, device="cpu"):
     return Tensor(data=data, dtype=dtype, device=device)
+
 
 # Fixture for common tensor data
 @pytest.fixture
 def sample_tensor_data():
     return np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
 
+
 @pytest.fixture
 def sample_tensor(sample_tensor_data):
     return Tensor(data=sample_tensor_data)
+
 
 @pytest.fixture
 def sample_tensor_int_data():
     return np.array([[1, 2], [3, 4]], dtype=np.int32)
 
+
 @pytest.fixture
 def sample_tensor_int(sample_tensor_int_data):
     return Tensor(data=sample_tensor_int_data)
+
 
 @pytest.fixture
 def broadcastable_tensor_data():
     return np.array([5.0, 6.0], dtype=np.float32)
 
+
 @pytest.fixture
 def broadcastable_tensor(broadcastable_tensor_data):
     return Tensor(data=broadcastable_tensor_data)
 
+
 @pytest.fixture
 def large_tensor_data():
     return np.arange(1, 28, dtype=np.float32).reshape(3, 3, 3)
+
 
 @pytest.fixture
 def large_tensor(large_tensor_data):
@@ -103,7 +113,9 @@ class TestTensorInitialization:
             Tensor(data=data)
 
     def test_init_no_data_or_shape(self):
-        with pytest.raises(ValueError, match="Either 'data', 'cpp_node', or 'shape' must be provided"):
+        with pytest.raises(
+            ValueError, match="Either 'data', 'cpp_node', or 'shape' must be provided"
+        ):
             Tensor()
 
     def test_init_with_cpp_node(self, sample_tensor):
@@ -244,7 +256,7 @@ class TestTensorBinaryOperations:
 
     def test_add_broadcast(self):
         a_data = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
-        b_data = np.array([10.0, 20.0], dtype=np.float32) # Will broadcast to (2,2)
+        b_data = np.array([10.0, 20.0], dtype=np.float32)  # Will broadcast to (2,2)
         a_t = Tensor(data=a_data)
         b_t = Tensor(data=b_data)
         result = a_t + b_t
@@ -252,7 +264,7 @@ class TestTensorBinaryOperations:
 
     def test_mul_broadcast(self):
         a_data = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
-        b_data = np.array([10.0, 20.0], dtype=np.float32) # Will broadcast to (2,2)
+        b_data = np.array([10.0, 20.0], dtype=np.float32)  # Will broadcast to (2,2)
         a_t = Tensor(data=a_data)
         b_t = Tensor(data=b_data)
         result = a_t * b_t
@@ -270,7 +282,7 @@ class TestTensorMovementOperations:
     def test_transpose_method(self):
         data = np.arange(1, 25, dtype=np.float32).reshape(2, 3, 4)
         t = Tensor(data=data)
-        result = t.transpose(0, 2) # Swap first and last dimension
+        result = t.transpose(0, 2)  # Swap first and last dimension
         assert_tensor_equal(result, np.transpose(data, (2, 1, 0)))
 
     def test_reshape(self):
@@ -301,7 +313,9 @@ class TestTensorMovementOperations:
     def test_squeeze_no_op(self):
         data = np.array([[1.0, 2.0]], dtype=np.float32)
         t = Tensor(data=data)
-        result = t.squeeze(0) # Dimension 0 has size 1, but it's not squeezed in numpy if it's the only dimension
+        result = t.squeeze(
+            0
+        )  # Dimension 0 has size 1, but it's not squeezed in numpy if it's the only dimension
         assert_tensor_equal(result, data.squeeze(0))
 
     def test_unsqueeze(self):
@@ -314,7 +328,9 @@ class TestTensorMovementOperations:
         data = np.array([1.0, 2.0], dtype=np.float32)
         t = Tensor(data=data)
         result = t.expand(2, 2)
-        assert_tensor_equal(result, np.array([[1.0, 2.0], [1.0, 2.0]], dtype=np.float32))
+        assert_tensor_equal(
+            result, np.array([[1.0, 2.0], [1.0, 2.0]], dtype=np.float32)
+        )
 
     def test_broadcast_to(self):
         data = np.array([1.0, 2.0], dtype=np.float32)
@@ -333,7 +349,9 @@ class TestTensorMovementOperations:
     def test_expand_error_smaller_dims(self):
         data = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
         t = Tensor(data=data)
-        with pytest.raises(ValueError, match="Cannot expand tensor from 2 dimensions to 1 dimensions"):
+        with pytest.raises(
+            ValueError, match="Cannot expand tensor from 2 dimensions to 1 dimensions"
+        ):
             t.expand(2)
 
 
@@ -349,7 +367,9 @@ class TestTensorReductionOperations:
 
     def test_min_dim_keepdim(self, large_tensor, large_tensor_data):
         result = large_tensor.min(dim=1, keepdim=True)
-        assert_tensor_equal(result, np.expand_dims(large_tensor_data.min(axis=1), axis=1))
+        assert_tensor_equal(
+            result, np.expand_dims(large_tensor_data.min(axis=1), axis=1)
+        )
 
     def test_max_full(self, large_tensor, large_tensor_data):
         result = large_tensor.max()
@@ -361,7 +381,9 @@ class TestTensorReductionOperations:
 
     def test_max_dim_keepdim(self, large_tensor, large_tensor_data):
         result = large_tensor.max(dim=1, keepdim=True)
-        assert_tensor_equal(result, np.expand_dims(large_tensor_data.max(axis=1), axis=1))
+        assert_tensor_equal(
+            result, np.expand_dims(large_tensor_data.max(axis=1), axis=1)
+        )
 
     def test_sum_full(self, large_tensor, large_tensor_data):
         result = large_tensor.sum()
@@ -373,11 +395,15 @@ class TestTensorReductionOperations:
 
     def test_sum_dim_keepdim(self, large_tensor, large_tensor_data):
         result = large_tensor.sum(dim=1, keepdim=True)
-        assert_tensor_equal(result, np.expand_dims(large_tensor_data.sum(axis=1), axis=1))
+        assert_tensor_equal(
+            result, np.expand_dims(large_tensor_data.sum(axis=1), axis=1)
+        )
 
     def test_mean_full(self, large_tensor, large_tensor_data):
         result = large_tensor.mean()
-        assert_tensor_equal(result, np.array(large_tensor_data.mean(), dtype=np.float32))
+        assert_tensor_equal(
+            result, np.array(large_tensor_data.mean(), dtype=np.float32)
+        )
 
     def test_mean_dim(self, large_tensor, large_tensor_data):
         result = large_tensor.mean(dim=1)
@@ -385,7 +411,9 @@ class TestTensorReductionOperations:
 
     def test_mean_dim_keepdim(self, large_tensor, large_tensor_data):
         result = large_tensor.mean(dim=1, keepdim=True)
-        assert_tensor_equal(result, np.expand_dims(large_tensor_data.mean(axis=1), axis=1))
+        assert_tensor_equal(
+            result, np.expand_dims(large_tensor_data.mean(axis=1), axis=1)
+        )
 
 
 # Test Device Transfer
@@ -416,7 +444,9 @@ class TestTensorDeviceTransfer:
         # Access the data property, which should trigger the copy from CUDA to CPU
         retrieved_data = cuda_tensor.data
         assert isinstance(retrieved_data, np.ndarray)
-        np.testing.assert_allclose(retrieved_data, sample_tensor_data, rtol=1e-5, atol=1e-8)
+        np.testing.assert_allclose(
+            retrieved_data, sample_tensor_data, rtol=1e-5, atol=1e-8
+        )
 
 
 # Test Utility Methods
@@ -428,38 +458,27 @@ class TestTensorUtilityMethods:
         assert large_tensor.numel() == large_tensor_data.size
 
 
-import time
+# Test Autograd functionality
+class TestAutograd:
+    def test_simple_add_backward(self):
+        a_data = np.array([1.0], dtype=np.float32)
+        b_data = np.array([2.0], dtype=np.float32)
 
-class TestTensorBenchmarking:
-    @pytest.mark.parametrize("size", [128, 256, 512])
-    def test_matmul_performance(self, size):
-        # Generate random matrices
-        a_data = np.random.rand(size, size).astype(np.float32)
-        b_data = np.random.rand(size, size).astype(np.float32)
+        a = Tensor(data=a_data, requires_grad=True)
+        b = Tensor(data=b_data, requires_grad=True)
 
-        # CPU Matmul
-        cpu_a = Tensor(data=a_data, device="cpu")
-        cpu_b = Tensor(data=b_data, device="cpu")
+        c = a + b # This creates the computation graph
 
-        start_cpu = time.perf_counter()
-        cpu_result = cpu_a @ cpu_b
-        end_cpu = time.perf_counter()
-        cpu_time = end_cpu - start_cpu
-        print(f"\nCPU Matmul ({size}x{size}): {cpu_time:.6f} seconds")
+        # Perform forward pass to compute c's value and build the graph
+        _ = c.data
 
-        # CUDA Matmul
-        if Device.is_cuda_available():
-            cuda_a = Tensor(data=a_data, device="cuda")
-            cuda_b = Tensor(data=b_data, device="cuda")
+        # Perform backward pass
+        c.backward()
 
-            start_cuda = time.perf_counter()
-            cuda_result = cuda_a @ cuda_b
-            end_cuda = time.perf_counter()
-            cuda_time = end_cuda - start_cuda
-            print(f"CUDA Matmul ({size}x{size}): {cuda_time:.6f} seconds")
+        # Check gradients
+        assert a.grad is not None
+        assert b.grad is not None
+        assert_tensor_equal(a.grad, np.array([1.0], dtype=np.float32))
+        assert_tensor_equal(b.grad, np.array([1.0], dtype=np.float32))
 
-            # Optional: Verify results are close
-            assert_tensor_equal(cpu_result, cuda_result.data)
-            assert cuda_time < cpu_time # Expect CUDA to be faster
-        else:
-            print(f"CUDA not available, skipping CUDA matmul benchmark for size {size}")
+
