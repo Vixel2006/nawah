@@ -2,7 +2,9 @@
 #include "plast/core/device_management.h"
 #include "plast/core/shape_utils_cpp.h"
 #include "plast/core/types.h"
+#include "plast/kernels/cpu/unary_backward_kernels.h"
 #include "plast/kernels/cpu/unary_kernels.h"
+#include "plast/kernels/cuda/unary_backward_kernels.h"
 #include "plast/kernels/cuda/unary_kernels.h"
 
 namespace plast
@@ -25,32 +27,21 @@ tensor::Tensor AbsOperation::execute_cpu(const std::vector<const tensor::Tensor*
     // Allocate output tensor
     tensor::Tensor output(input.shape(), dtype, core::DeviceType::CPU);
 
-    bool input_contiguous = input.is_contiguous();
-
     // Dispatch to type-specific C CPU kernel
-    if (input_contiguous)
+    switch (dtype)
     {
-        switch (dtype)
-        {
-        case core::DType::FLOAT32:
-            plast_cpu_abs_kernel_float(output.data_as<float>(), input.data_as<const float>(),
-                                       num_elements);
-            break;
-        case core::DType::INT32:
-            plast_cpu_abs_kernel_int32(output.data_as<int32_t>(), input.data_as<const int32_t>(),
-                                       num_elements);
-            break;
-        // Add more types as needed
-        default:
-            throw std::runtime_error("Unsupported DType for Abs operation on CPU.");
-        }
+    case core::DType::FLOAT32:
+        plast_cpu_abs_kernel_float(output.data_as<float>(), input.data_as<const float>(),
+                                   num_elements);
+        break;
+    case core::DType::INT32:
+        plast_cpu_abs_kernel_int32(output.data_as<int32_t>(), input.data_as<const int32_t>(),
+                                   num_elements);
+        break;
+    // Add more types as needed
+    default:
+        throw std::runtime_error("Unsupported DType for Abs operation on CPU.");
     }
-    else
-    {
-        throw std::runtime_error(
-            "Abs operation on CPU does not yet support non-contiguous inputs.");
-    }
-
     return output;
 }
 
@@ -110,10 +101,26 @@ AbsOperation::backward_cpu(const tensor::Tensor& grad_output, const tensor::Tens
     // Gradient for input
     if (input->requires_grad())
     {
-        // d(|x|)/dx = sign(x)
-        // grad_input = grad_output * sign(input)
-        throw std::runtime_error(
-            "Abs backward_cpu: Gradient for input not yet implemented (requires sign operation).");
+        tensor::Tensor grad_input(input->shape(), input->dtype(), input->device());
+        std::memset(grad_input.data(), 0, grad_input.nbytes()); // Initialize to zeros
+
+        // Dispatch to type-specific C CPU kernel
+        switch (input->dtype())
+        {
+        case core::DType::FLOAT32:
+            plast_cpu_abs_backward_kernel_float(
+                grad_input.data_as<float>(), grad_output.data_as<const float>(),
+                inputs[0]->data_as<const float>(), grad_output.num_elements());
+            break;
+        case core::DType::INT32:
+            plast_cpu_abs_backward_kernel_int32(
+                grad_input.data_as<int32_t>(), grad_output.data_as<const int32_t>(),
+                inputs[0]->data_as<const int32_t>(), grad_output.num_elements());
+            break;
+        default:
+            throw std::runtime_error("Unsupported DType for Abs backward on CPU.");
+        }
+        input_grads.push_back(std::move(grad_input));
     }
     else
     {
@@ -143,10 +150,27 @@ AbsOperation::backward_cuda(const tensor::Tensor& grad_output, const tensor::Ten
     // Gradient for input
     if (input->requires_grad())
     {
-        // d(|x|)/dx = sign(x)
-        // grad_input = grad_output * sign(input)
-        throw std::runtime_error(
-            "Abs backward_cuda: Gradient for input not yet implemented (requires sign operation).");
+        tensor::Tensor grad_input(input->shape(), input->dtype(), input->device());
+        PLAST_CUDA_CHECK(
+            cudaMemset(grad_input.data(), 0, grad_input.nbytes())); // Initialize to zeros
+
+        // Dispatch to type-specific C CUDA kernel
+        switch (input->dtype())
+        {
+        case core::DType::FLOAT32:
+            plast_cuda_abs_backward_kernel_float(
+                grad_input.data_as<float>(), grad_output.data_as<const float>(),
+                inputs[0]->data_as<const float>(), grad_output.num_elements());
+            break;
+        case core::DType::INT32:
+            plast_cuda_abs_backward_kernel_int32(
+                grad_input.data_as<int32_t>(), grad_output.data_as<const int32_t>(),
+                inputs[0]->data_as<const int32_t>(), grad_output.num_elements());
+            break;
+        default:
+            throw std::runtime_error("Unsupported DType for Abs backward on CUDA.");
+        }
+        input_grads.push_back(std::move(grad_input));
     }
     else
     {

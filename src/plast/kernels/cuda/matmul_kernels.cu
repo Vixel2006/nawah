@@ -153,4 +153,3 @@ extern "C" void plast_cuda_matmul_kernel_int32(int32_t* out, const int32_t* in1,
                                  cudaGetErrorString(err));
     }
 }
-

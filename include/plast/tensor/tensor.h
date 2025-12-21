@@ -28,8 +28,6 @@ class Tensor
   public:
     // Constructor for creating a new tensor with allocated memory (contiguous strides)
     Tensor(const std::vector<size_t>& shape, core::DType dtype, core::DeviceType device);
-    Tensor(const std::vector<size_t>& shape, const std::vector<size_t>& strides, core::DType dtype,
-           core::DeviceType device);
 
     // Constructor for creating a view (shares DataBuffer)
     Tensor(std::shared_ptr<core::DataBuffer> buffer, const std::vector<size_t>& shape,
@@ -64,7 +62,6 @@ class Tensor
     Tensor clone() const;
 
     // Utility methods
-    bool is_contiguous() const;
     template <typename T> T* data_as() const
     {
         if (sizeof(T) != get_dtype_size(dtype_))
@@ -88,8 +85,6 @@ class Tensor
     Tensor* grad() { return grad_.get(); }
     const Tensor* grad() const { return grad_.get(); }
     void set_grad(std::shared_ptr<Tensor> grad) { grad_ = grad; }
-    std::shared_ptr<graph::Node> grad_fn() const { return grad_fn_; }
-    void set_grad_fn(std::shared_ptr<graph::Node> grad_fn) { grad_fn_ = grad_fn; }
 
   private:
     std::shared_ptr<core::DataBuffer> buffer_;
@@ -100,7 +95,6 @@ class Tensor
     // Autograd-related members
     bool requires_grad_{false};
     std::shared_ptr<Tensor> grad_{nullptr};
-    std::shared_ptr<graph::Node> grad_fn_{nullptr};
 };
 
 } // namespace tensor

@@ -33,4 +33,3 @@ void plast_cpu_sub_kernel_int32(int32_t* out, const int32_t* in1, const int32_t*
         out[i] = in1[i] - in2[i];
     }
 }
-

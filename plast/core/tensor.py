@@ -40,6 +40,7 @@ class Tensor:
         dtype: Optional[Any] = None,
         device: Optional[str] = None,
         cpp_node: Optional[Any] = None,
+        requires_grad: bool = False,
     ):
         """
         Initializes a Tensor.
@@ -89,6 +90,7 @@ class Tensor:
             cpp_tensor_value = _plast_cpp_core.from_data(
                 data, list(shape), cpp_dtype, cpp_device
             )
+            cpp_tensor_value.set_requires_grad(requires_grad)
             self._cpp_node = _plast_cpp_core.Node(cpp_tensor_value)
         else:
             # New logic for shape-based initialization (uninitialized tensor)
@@ -117,9 +119,14 @@ class Tensor:
 
             # Create a C++ Tensor object that allocates memory based on shape, dtype, device
             cpp_tensor_value = _plast_cpp_core.Tensor(
-                list(shape), cpp_dtype, cpp_device
+                list(shape), cpp_dtype, cpp_device, requires_grad
             )
             self._cpp_node = _plast_cpp_core.Node(cpp_tensor_value)
+        
+        # Set requires_grad for the underlying C++ node
+        # This line is redundant if requires_grad is set on cpp_tensor_value directly
+        # but kept for consistency with Node's requires_grad logic.
+        self._cpp_node.set_requires_grad(requires_grad)
 
     @property
     def data(self) -> np.ndarray:
@@ -127,10 +134,6 @@ class Tensor:
         Triggers computation of the graph up to this node and returns the data as a numpy array.
         """
         cpp_tensor = _execution_engine.execute(self._cpp_node)
-        
-        # Ensure the tensor is contiguous before getting data as numpy
-        if not cpp_tensor.is_contiguous():
-            cpp_tensor = cpp_tensor.clone()
         
         np_data = cpp_tensor._get_data_as_numpy()
 
@@ -302,7 +305,7 @@ class Tensor:
             result_tensor = self
             # Squeeze from highest dimension to lowest to avoid index shifts
             for d in sorted(squeezed_dims, reverse=True):
-                result_tensor = Tensor(cpp_node=_plast_cpp_core.squeeze_op_node(result_tensor._cpp_node, d, d)) # N and M are the same for squeeze
+                result_tensor = Tensor(cpp_node=_plast_cpp_core.squeeze_op_node(result_tensor._cpp_node, d)) # N and M are the same for squeeze
             return result_tensor
         else:
             if dim < 0:
@@ -311,7 +314,7 @@ class Tensor:
                 raise IndexError("Dimension out of range.")
             if self.shape[dim] != 1:
                 return self # Cannot squeeze dimension of size > 1
-            new_cpp_node = _plast_cpp_core.squeeze_op_node(self._cpp_node, dim, dim) # N and M are the same for squeeze
+            new_cpp_node = _plast_cpp_core.squeeze_op_node(self._cpp_node, dim) # N and M are the same for squeeze
             return Tensor(cpp_node=new_cpp_node)
 
     def unsqueeze(self, dim: int) -> Tensor:
@@ -388,7 +391,39 @@ class Tensor:
         except Exception as e:
             return f"Tensor(uncomputed_node, error_on_repr: {e})"
 
+    @property
+    def grad(self) -> Optional[Tensor]:
+        """
+        Returns the gradient tensor associated with this tensor.
+        """
+        # Get the underlying C++ Tensor object from the node
+        cpp_tensor_value = self._cpp_node.get_output_tensor()
+
+        if cpp_tensor_value is None:
+            return None # Or raise an error if this state is unexpected
+
+        # Access the grad_ tensor directly from the C++ Tensor object
+        cpp_grad_tensor = cpp_tensor_value.grad # This calls C++ Tensor::grad()
+
+        if cpp_grad_tensor is None:
+            return None
+
+        # Wrap the C++ grad Tensor in a new Python Tensor.
+        # The grad tensor itself is a leaf-like tensor (it doesn't have a grad_fn).
+        return Tensor(cpp_node=_plast_cpp_core.Node(cpp_grad_tensor))
+
     # Placeholder for other methods
+    def backward(self, grad_output: Optional[Tensor] = None) -> None:
+        """
+        Computes the gradients of the current tensor with respect to graph leaves.
+        """
+        grad_output_cpp_tensor = None
+        if grad_output is not None:
+            # Execute the grad_output tensor's graph to get its concrete C++ tensor
+            grad_output_cpp_tensor = _execution_engine.execute(grad_output._cpp_node)
+        
+        _execution_engine.backward(self._cpp_node, grad_output_cpp_tensor)
+
     def numel(self) -> int:
         cpp_tensor = _execution_engine.execute(self._cpp_node)
         return cpp_tensor.num_elements()
@@ -398,10 +433,10 @@ class Tensor:
         pass
 
 if __name__ == "__main__":
-    a = Tensor(data=[[[1, 2], [3, 4]], [[5, 6], [7, 8]]], dtype=np.float32, device="cuda")
+    a = Tensor(data=[[[1, 2], [3, 4]], [[5, 6], [7, 8]]], dtype=np.float32, device="cpu")
     b = Tensor(data=[[1,2], [-3,4]], dtype=np.float32, device="cuda")
 
-    c = a - b
+    c = a.T
 
     print(c.data)
 

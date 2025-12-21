@@ -182,5 +182,64 @@ std::vector<size_t> get_effective_broadcast_strides(
     }
     return result_strides;
 }
+
+std::vector<size_t> get_reduced_shape(const std::vector<size_t>& grad_shape,
+                                      const std::vector<size_t>& input_shape)
+{
+    size_t grad_ndim = grad_shape.size();
+    size_t input_ndim = input_shape.size();
+    std::vector<size_t> reduced_shape(grad_ndim);
+
+    // Pad input_shape with 1s on the left to match grad_ndim
+    std::vector<size_t> padded_input_shape(grad_ndim, 1);
+    std::copy(input_shape.begin(), input_shape.end(),
+              padded_input_shape.begin() + (grad_ndim - input_ndim));
+
+    for (size_t i = 0; i < grad_ndim; ++i)
+    {
+        if (padded_input_shape[i] == grad_shape[i])
+        {
+            reduced_shape[i] = grad_shape[i];
+        }
+        else if (padded_input_shape[i] == 1)
+        {
+            // This dimension was broadcasted from 1 in input_shape to grad_shape[i]
+            // We need to sum along this dimension, so its size in the reduced shape should be 1.
+            reduced_shape[i] = 1;
+        }
+        else
+        {
+            // This case should not happen if shapes are broadcastable
+            throw std::runtime_error("Error in get_reduced_shape: non-broadcastable dimension.");
+        }
+    }
+    return reduced_shape;
+}
+
+std::vector<int> get_broadcasted_dims(const std::vector<size_t>& input_shape,
+                                      const std::vector<size_t>& output_shape)
+{
+    std::vector<int> broadcasted_dims;
+    size_t input_ndim = input_shape.size();
+    size_t output_ndim = output_shape.size();
+
+    // Iterate from the rightmost dimension
+    for (int i = 0; i < output_ndim; ++i)
+    {
+        int input_dim_idx = i - (output_ndim - input_ndim);
+        if (input_dim_idx < 0)
+        {
+            // Dimension was prepended, so it was broadcasted
+            broadcasted_dims.push_back(i);
+        }
+        else if (input_shape[input_dim_idx] == 1 && output_shape[i] > 1)
+        {
+            // Input dimension was 1 and broadcasted to a larger output dimension
+            broadcasted_dims.push_back(i);
+        }
+    }
+    return broadcasted_dims;
+}
+
 } // namespace core
 } // namespace plast

@@ -2,7 +2,9 @@
 #include "plast/core/device_management.h"
 #include "plast/core/shape_utils_cpp.h"
 #include "plast/core/types.h"
+#include "plast/kernels/cpu/binary_backward_kernels.h"
 #include "plast/kernels/cpu/binary_kernels.h"
+#include "plast/kernels/cuda/binary_backward_kernels.h"
 #include "plast/kernels/cuda/binary_kernels.h"
 #include "plast/ops/movement/broadcast.h" // Added include for BroadcastOperation
 
@@ -32,7 +34,7 @@ tensor::Tensor MulOperation::execute_cpu(const std::vector<const tensor::Tensor*
     // Handle broadcasting for lhs
     const tensor::Tensor* current_lhs = &lhs;
     std::unique_ptr<tensor::Tensor> lhs_broadcasted_ptr;
-    if (lhs.shape() != output_shape_vec || !lhs.is_contiguous())
+    if (lhs.shape() != output_shape_vec)
     {
         BroadcastOperation broadcast_op(output_shape_vec);
         lhs_broadcasted_ptr = std::make_unique<tensor::Tensor>(broadcast_op.execute_cpu({&lhs}));
@@ -42,7 +44,7 @@ tensor::Tensor MulOperation::execute_cpu(const std::vector<const tensor::Tensor*
     // Handle broadcasting for rhs
     const tensor::Tensor* current_rhs = &rhs;
     std::unique_ptr<tensor::Tensor> rhs_broadcasted_ptr;
-    if (rhs.shape() != output_shape_vec || !rhs.is_contiguous())
+    if (rhs.shape() != output_shape_vec)
     {
         BroadcastOperation broadcast_op(output_shape_vec);
         rhs_broadcasted_ptr = std::make_unique<tensor::Tensor>(broadcast_op.execute_cpu({&rhs}));
@@ -90,7 +92,7 @@ tensor::Tensor MulOperation::execute_cuda(const std::vector<const tensor::Tensor
     // Handle broadcasting for lhs
     const tensor::Tensor* current_lhs = &lhs;
     std::unique_ptr<tensor::Tensor> lhs_broadcasted_ptr;
-    if (lhs.shape() != output_shape_vec || !lhs.is_contiguous())
+    if (lhs.shape() != output_shape_vec)
     {
         BroadcastOperation broadcast_op(output_shape_vec);
         lhs_broadcasted_ptr = std::make_unique<tensor::Tensor>(broadcast_op.execute_cuda({&lhs}));
@@ -100,7 +102,7 @@ tensor::Tensor MulOperation::execute_cuda(const std::vector<const tensor::Tensor
     // Handle broadcasting for rhs
     const tensor::Tensor* current_rhs = &rhs;
     std::unique_ptr<tensor::Tensor> rhs_broadcasted_ptr;
-    if (rhs.shape() != output_shape_vec || !rhs.is_contiguous())
+    if (rhs.shape() != output_shape_vec)
     {
         BroadcastOperation broadcast_op(output_shape_vec);
         rhs_broadcasted_ptr = std::make_unique<tensor::Tensor>(broadcast_op.execute_cuda({&rhs}));
@@ -145,36 +147,31 @@ MulOperation::backward_cpu(const tensor::Tensor& grad_output, const tensor::Tens
     const tensor::Tensor* lhs_input = inputs[0];
     const tensor::Tensor* rhs_input = inputs[1];
 
-    // Initialize gradients for inputs
     std::vector<tensor::Tensor> input_grads;
     input_grads.reserve(2);
 
-    // Gradient for LHS (input[0])
+    // Calculate gradient for LHS: grad_output * rhs_input
     if (lhs_input->requires_grad())
     {
-        // d(A*B)/dA = B, so grad_lhs = grad_output * rhs_input
-        // This requires element-wise multiplication
-        throw std::runtime_error(
-            "Mul backward_cpu: Gradient for LHS not yet implemented (requires element-wise mul).");
+        MulOperation mul_op;
+        tensor::Tensor grad_for_lhs = mul_op.execute_cpu({&grad_output, rhs_input});
+        input_grads.push_back(std::move(grad_for_lhs));
     }
     else
     {
-        input_grads.push_back(tensor::Tensor(
-            {}, lhs_input->dtype(), lhs_input->device())); // Empty tensor if no grad required
+        input_grads.push_back(tensor::Tensor({}, lhs_input->dtype(), lhs_input->device()));
     }
 
-    // Gradient for RHS (input[1])
+    // Calculate gradient for RHS: grad_output * lhs_input
     if (rhs_input->requires_grad())
     {
-        // d(A*B)/dB = A, so grad_rhs = grad_output * lhs_input
-        // This requires element-wise multiplication
-        throw std::runtime_error(
-            "Mul backward_cpu: Gradient for RHS not yet implemented (requires element-wise mul).");
+        MulOperation mul_op;
+        tensor::Tensor grad_for_rhs = mul_op.execute_cpu({&grad_output, lhs_input});
+        input_grads.push_back(std::move(grad_for_rhs));
     }
     else
     {
-        input_grads.push_back(tensor::Tensor(
-            {}, rhs_input->dtype(), rhs_input->device())); // Empty tensor if no grad required
+        input_grads.push_back(tensor::Tensor({}, rhs_input->dtype(), rhs_input->device()));
     }
 
     return input_grads;
@@ -193,28 +190,84 @@ MulOperation::backward_cuda(const tensor::Tensor& grad_output, const tensor::Ten
     const tensor::Tensor* lhs_input = inputs[0];
     const tensor::Tensor* rhs_input = inputs[1];
 
-    // Initialize gradients for inputs
     std::vector<tensor::Tensor> input_grads;
     input_grads.reserve(2);
 
-    // Gradient for LHS (input[0])
+    // Pointers to the data buffers for the gradients
+    float* grad_lhs_data = nullptr;
+    float* grad_rhs_data = nullptr;
+    int32_t* grad_lhs_data_int = nullptr;
+    int32_t* grad_rhs_data_int = nullptr;
+
+    // Allocate grad_lhs if required
+    std::unique_ptr<tensor::Tensor> grad_lhs_tensor_ptr;
     if (lhs_input->requires_grad())
     {
-        // d(A*B)/dA = B, so grad_lhs = grad_output * rhs_input
-        throw std::runtime_error(
-            "Mul backward_cuda: Gradient for LHS not yet implemented (requires element-wise mul).");
+        grad_lhs_tensor_ptr = std::make_unique<tensor::Tensor>(
+            lhs_input->shape(), lhs_input->dtype(), lhs_input->device());
+        PLAST_CUDA_CHECK(cudaMemset(grad_lhs_tensor_ptr->data(), 0, grad_lhs_tensor_ptr->nbytes()));
+        if (lhs_input->dtype() == core::DType::FLOAT32)
+        {
+            grad_lhs_data = grad_lhs_tensor_ptr->data_as<float>();
+        }
+        else if (lhs_input->dtype() == core::DType::INT32)
+        {
+            grad_lhs_data_int = grad_lhs_tensor_ptr->data_as<int32_t>();
+        }
+    }
+
+    // Allocate grad_rhs if required
+    std::unique_ptr<tensor::Tensor> grad_rhs_tensor_ptr;
+    if (rhs_input->requires_grad())
+    {
+        grad_rhs_tensor_ptr = std::make_unique<tensor::Tensor>(
+            rhs_input->shape(), rhs_input->dtype(), rhs_input->device());
+        PLAST_CUDA_CHECK(cudaMemset(grad_rhs_tensor_ptr->data(), 0, grad_rhs_tensor_ptr->nbytes()));
+        if (rhs_input->dtype() == core::DType::FLOAT32)
+        {
+            grad_rhs_data = grad_rhs_tensor_ptr->data_as<float>();
+        }
+        else if (rhs_input->dtype() == core::DType::INT32)
+        {
+            grad_rhs_data_int = grad_rhs_tensor_ptr->data_as<int32_t>();
+        }
+    }
+
+    // Call the backward kernel only if at least one input requires grad
+    if (lhs_input->requires_grad() || rhs_input->requires_grad())
+    {
+        switch (grad_output.dtype())
+        {
+        case core::DType::FLOAT32:
+            plast_cuda_mul_backward_kernel_float(
+                grad_lhs_data, grad_rhs_data, grad_output.data_as<const float>(),
+                lhs_input->data_as<const float>(), rhs_input->data_as<const float>(),
+                grad_output.num_elements());
+            break;
+        case core::DType::INT32:
+            plast_cuda_mul_backward_kernel_int32(
+                grad_lhs_data_int, grad_rhs_data_int, grad_output.data_as<const int32_t>(),
+                lhs_input->data_as<const int32_t>(), rhs_input->data_as<const int32_t>(),
+                grad_output.num_elements());
+            break;
+        default:
+            throw std::runtime_error("Unsupported DType for Mul backward on CUDA.");
+        }
+    }
+
+    // Push the resulting gradient tensors
+    if (lhs_input->requires_grad())
+    {
+        input_grads.push_back(std::move(*grad_lhs_tensor_ptr));
     }
     else
     {
         input_grads.push_back(tensor::Tensor({}, lhs_input->dtype(), lhs_input->device()));
     }
 
-    // Gradient for RHS (input[1])
     if (rhs_input->requires_grad())
     {
-        // d(A*B)/dB = A, so grad_rhs = grad_output * lhs_input
-        throw std::runtime_error(
-            "Mul backward_cuda: Gradient for RHS not yet implemented (requires element-wise mul).");
+        input_grads.push_back(std::move(*grad_rhs_tensor_ptr));
     }
     else
     {

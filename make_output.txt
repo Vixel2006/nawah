@@ -1,0 +1,357 @@
+--- Preparing build environment ---
+rm -rf build
+rm -rf dist *.egg-info
+--- Preparation complete ---
+--- Initializing Python virtual environment and installing dependencies ---
+python3 -m venv venv
+venv/bin/pip install --upgrade pip
+Requirement already satisfied: pip in ./venv/lib/python3.13/site-packages (25.3)
+venv/bin/pip install pytest flake8 black
+Requirement already satisfied: pytest in ./venv/lib/python3.13/site-packages (9.0.1)
+Requirement already satisfied: flake8 in ./venv/lib/python3.13/site-packages (7.3.0)
+Requirement already satisfied: black in ./venv/lib/python3.13/site-packages (25.11.0)
+Requirement already satisfied: iniconfig>=1.0.1 in ./venv/lib/python3.13/site-packages (from pytest) (2.3.0)
+Requirement already satisfied: packaging>=22 in ./venv/lib/python3.13/site-packages (from pytest) (25.0)
+Requirement already satisfied: pluggy<2,>=1.5 in ./venv/lib/python3.13/site-packages (from pytest) (1.6.0)
+Requirement already satisfied: pygments>=2.7.2 in ./venv/lib/python3.13/site-packages (from pytest) (2.19.2)
+Requirement already satisfied: mccabe<0.8.0,>=0.7.0 in ./venv/lib/python3.13/site-packages (from flake8) (0.7.0)
+Requirement already satisfied: pycodestyle<2.15.0,>=2.14.0 in ./venv/lib/python3.13/site-packages (from flake8) (2.14.0)
+Requirement already satisfied: pyflakes<3.5.0,>=3.4.0 in ./venv/lib/python3.13/site-packages (from flake8) (3.4.0)
+Requirement already satisfied: click>=8.0.0 in ./venv/lib/python3.13/site-packages (from black) (8.3.1)
+Requirement already satisfied: mypy-extensions>=0.4.3 in ./venv/lib/python3.13/site-packages (from black) (1.1.0)
+Requirement already satisfied: pathspec>=0.9.0 in ./venv/lib/python3.13/site-packages (from black) (0.12.1)
+Requirement already satisfied: platformdirs>=2 in ./venv/lib/python3.13/site-packages (from black) (4.5.0)
+Requirement already satisfied: pytokens>=0.3.0 in ./venv/lib/python3.13/site-packages (from black) (0.3.0)
+venv/bin/pip install -r requirements.txt
+Requirement already satisfied: pytest in ./venv/lib/python3.13/site-packages (from -r requirements.txt (line 1)) (9.0.1)
+Requirement already satisfied: flake8 in ./venv/lib/python3.13/site-packages (from -r requirements.txt (line 2)) (7.3.0)
+Requirement already satisfied: black in ./venv/lib/python3.13/site-packages (from -r requirements.txt (line 3)) (25.11.0)
+Requirement already satisfied: numpy in ./venv/lib/python3.13/site-packages (from -r requirements.txt (line 4)) (2.3.5)
+Requirement already satisfied: pyyaml in ./venv/lib/python3.13/site-packages (from -r requirements.txt (line 5)) (6.0.3)
+Requirement already satisfied: pybind11 in ./venv/lib/python3.13/site-packages (from -r requirements.txt (line 6)) (3.0.1)
+Requirement already satisfied: iniconfig>=1.0.1 in ./venv/lib/python3.13/site-packages (from pytest->-r requirements.txt (line 1)) (2.3.0)
+Requirement already satisfied: packaging>=22 in ./venv/lib/python3.13/site-packages (from pytest->-r requirements.txt (line 1)) (25.0)
+Requirement already satisfied: pluggy<2,>=1.5 in ./venv/lib/python3.13/site-packages (from pytest->-r requirements.txt (line 1)) (1.6.0)
+Requirement already satisfied: pygments>=2.7.2 in ./venv/lib/python3.13/site-packages (from pytest->-r requirements.txt (line 1)) (2.19.2)
+Requirement already satisfied: mccabe<0.8.0,>=0.7.0 in ./venv/lib/python3.13/site-packages (from flake8->-r requirements.txt (line 2)) (0.7.0)
+Requirement already satisfied: pycodestyle<2.15.0,>=2.14.0 in ./venv/lib/python3.13/site-packages (from flake8->-r requirements.txt (line 2)) (2.14.0)
+Requirement already satisfied: pyflakes<3.5.0,>=3.4.0 in ./venv/lib/python3.13/site-packages (from flake8->-r requirements.txt (line 2)) (3.4.0)
+Requirement already satisfied: click>=8.0.0 in ./venv/lib/python3.13/site-packages (from black->-r requirements.txt (line 3)) (8.3.1)
+Requirement already satisfied: mypy-extensions>=0.4.3 in ./venv/lib/python3.13/site-packages (from black->-r requirements.txt (line 3)) (1.1.0)
+Requirement already satisfied: pathspec>=0.9.0 in ./venv/lib/python3.13/site-packages (from black->-r requirements.txt (line 3)) (0.12.1)
+Requirement already satisfied: platformdirs>=2 in ./venv/lib/python3.13/site-packages (from black->-r requirements.txt (line 3)) (4.5.0)
+Requirement already satisfied: pytokens>=0.3.0 in ./venv/lib/python3.13/site-packages (from black->-r requirements.txt (line 3)) (0.3.0)
+--- Virtual environment setup complete ---
+make: Circular build <- build dependency dropped.
+--- Building C project with CMake ---
+mkdir -p build
+cmake -S . -B build
+-- The C compiler identification is GNU 15.2.1
+-- The CXX compiler identification is GNU 15.2.1
+-- The CUDA compiler identification is NVIDIA 13.0.88 with host compiler GNU 15.2.1
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /bin/cc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Detecting CUDA compiler ABI info
+-- Detecting CUDA compiler ABI info - done
+-- Check for working CUDA compiler: /opt/cuda/bin/nvcc - skipped
+-- Detecting CUDA compile features
+-- Detecting CUDA compile features - done
+-- Found CUDAToolkit: /opt/cuda/targets/x86_64-linux/include;/opt/cuda/targets/x86_64-linux/include/cccl (found version "13.0.88")
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+-- Found Threads: TRUE
+CMake Warning (dev) at venv/lib/python3.13/site-packages/pybind11/share/cmake/pybind11/FindPythonLibsNew.cmake:101 (message):
+  Policy CMP0148 is not set: The FindPythonInterp and FindPythonLibs modules
+  are removed.  Run "cmake --help-policy CMP0148" for policy details.  Use
+  the cmake_policy command to set the policy and suppress this warning, or
+  preferably upgrade to using FindPython, either by calling it explicitly
+  before pybind11, or by setting PYBIND11_FINDPYTHON ON before pybind11.
+Call Stack (most recent call first):
+  venv/lib/python3.13/site-packages/pybind11/share/cmake/pybind11/pybind11Tools.cmake:44 (find_package)
+  venv/lib/python3.13/site-packages/pybind11/share/cmake/pybind11/pybind11Common.cmake:226 (include)
+  venv/lib/python3.13/site-packages/pybind11/share/cmake/pybind11/pybind11Config.cmake:257 (include)
+  CMakeLists.txt:10 (find_package)
+This warning is for project developers.  Use -Wno-dev to suppress it.
+
+-- Found PythonInterp: /home/vixel/code/plast/venv/bin/python (found suitable version "3.13.11", minimum required is "3.8")
+-- Found PythonLibs: /usr/lib/libpython3.13.so
+-- Performing Test HAS_FLTO_AUTO
+-- Performing Test HAS_FLTO_AUTO - Success
+-- Found pybind11: /home/vixel/code/plast/venv/lib/python3.13/site-packages/pybind11/include (found version "3.0.1")
+-- Found SLEEF include: /home/vixel/code/plast/vendor/sleef/build/include
+-- Found SLEEF library: /home/vixel/code/plast/vendor/sleef/build/lib/libsleef.a
+-- Configuring done (1.8s)
+-- Generating done (0.0s)
+-- Build files have been written to: /home/vixel/code/plast/build
+cmake --build build
+make[1]: Entering directory '/home/vixel/code/plast/build'
+[  1%] Building CXX object CMakeFiles/plast_cpp_core_lib.dir/src/plast/core/device_management.cpp.o
+[  2%] Building CXX object CMakeFiles/plast_cpp_core_lib.dir/src/plast/core/shape_utils.cpp.o
+[  3%] Building CXX object CMakeFiles/plast_cpp_core_lib.dir/src/plast/graph/node.cpp.o
+[  4%] Building CXX object CMakeFiles/plast_cpp_core_lib.dir/src/plast/execution/engine.cpp.o
+[  5%] Building CXX object CMakeFiles/plast_cpp_core_lib.dir/src/plast/tensor/tensor.cpp.o
+[  6%] Building CXX object CMakeFiles/plast_cpp_core_lib.dir/src/plast/ops/binary/add.cpp.o
+[  7%] Building CXX object CMakeFiles/plast_cpp_core_lib.dir/src/plast/ops/binary/sub.cpp.o
+[  8%] Building CXX object CMakeFiles/plast_cpp_core_lib.dir/src/plast/ops/binary/mul.cpp.o
+[  9%] Building CXX object CMakeFiles/plast_cpp_core_lib.dir/src/plast/ops/binary/matmul.cpp.o
+[ 10%] Building CXX object CMakeFiles/plast_cpp_core_lib.dir/src/plast/ops/unary/abs.cpp.o
+[ 11%] Building CXX object CMakeFiles/plast_cpp_core_lib.dir/src/plast/ops/unary/relu.cpp.o
+[ 12%] Building CXX object CMakeFiles/plast_cpp_core_lib.dir/src/plast/ops/unary/exp.cpp.o
+[ 13%] Building CXX object CMakeFiles/plast_cpp_core_lib.dir/src/plast/ops/unary/log.cpp.o
+[ 14%] Building CXX object CMakeFiles/plast_cpp_core_lib.dir/src/plast/ops/unary/leaky_relu.cpp.o
+[ 15%] Building CXX object CMakeFiles/plast_cpp_core_lib.dir/src/plast/ops/reduction/min.cpp.o
+[ 16%] Building CXX object CMakeFiles/plast_cpp_core_lib.dir/src/plast/ops/reduction/mean.cpp.o
+[ 17%] Building CXX object CMakeFiles/plast_cpp_core_lib.dir/src/plast/ops/reduction/sum.cpp.o
+[ 18%] Building CXX object CMakeFiles/plast_cpp_core_lib.dir/src/plast/ops/reduction/max.cpp.o
+[ 19%] Building CXX object CMakeFiles/plast_cpp_core_lib.dir/src/plast/ops/movement/view.cpp.o
+[ 20%] Building CXX object CMakeFiles/plast_cpp_core_lib.dir/src/plast/ops/movement/squeeze.cpp.o
+[ 21%] Building CXX object CMakeFiles/plast_cpp_core_lib.dir/src/plast/ops/movement/unsqueeze.cpp.o
+[ 22%] Building CXX object CMakeFiles/plast_cpp_core_lib.dir/src/plast/ops/movement/transpose.cpp.o
+[ 23%] Building CXX object CMakeFiles/plast_cpp_core_lib.dir/src/plast/ops/movement/expand.cpp.o
+[ 24%] Building CXX object CMakeFiles/plast_cpp_core_lib.dir/src/plast/ops/movement/broadcast.cpp.o
+[ 25%] Building CUDA object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cuda/cuda_kernel_utils.cu.o
+[ 26%] Building CUDA object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cuda/init_kernels.cu.o
+[ 27%] Building CUDA object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cuda/add_kernels.cu.o
+[ 28%] Building CUDA object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cuda/sub_kernels.cu.o
+[ 29%] Building CUDA object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cuda/mul_kernels.cu.o
+[ 30%] Building CUDA object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cuda/abs_kernels.cu.o
+[ 31%] Building CUDA object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cuda/relu_kernels.cu.o
+[ 32%] Building CUDA object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cuda/exp_kernels.cu.o
+[ 33%] Building CUDA object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cuda/log_kernels.cu.o
+[ 34%] Building CUDA object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cuda/leaky_relu_kernels.cu.o
+[ 35%] Building CUDA object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cuda/matmul_kernels.cu.o
+[ 36%] Building CUDA object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cuda/sum_kernels.cu.o
+[ 37%] Building CUDA object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cuda/mean_kernels.cu.o
+[ 38%] Building CUDA object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cuda/max_kernels.cu.o
+[ 39%] Building CUDA object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cuda/min_kernels.cu.o
+[ 40%] Building CUDA object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cuda/broadcast_kernels.cu.o
+[ 41%] Building CUDA object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cuda/expand_kernels.cu.o
+[ 42%] Building C object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cpu/add_kernels.c.o
+[ 43%] Building C object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cpu/sub_kernels.c.o
+[ 44%] Building C object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cpu/mul_kernels.c.o
+[ 45%] Building C object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cpu/matmul_kernels.c.o
+[ 46%] Building C object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cpu/abs_kernels.c.o
+[ 47%] Building C object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cpu/relu_kernels.c.o
+[ 48%] Building C object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cpu/exp_kernels.c.o
+[ 49%] Building C object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cpu/log_kernels.c.o
+[ 50%] Building C object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cpu/leaky_relu_kernels.c.o
+[ 51%] Building C object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cpu/min_kernels.c.o
+[ 52%] Building C object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cpu/mean_kernels.c.o
+[ 53%] Building C object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cpu/sum_kernels.c.o
+[ 54%] Building C object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cpu/max_kernels.c.o
+[ 55%] Building C object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cpu/broadcast_kernels.c.o
+[ 56%] Building C object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cpu/expand_kernels.c.o
+[ 57%] Building C object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cpu/abs_backward_kernels.c.o
+[ 58%] Building C object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cpu/add_backward_kernels.c.o
+[ 59%] Building C object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cpu/broadcast_backward_kernels.c.o
+[ 60%] Building C object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cpu/exp_backward_kernels.c.o
+[ 61%] Building C object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cpu/expand_backward_kernels.c.o
+[ 62%] Building C object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cpu/init_backward_kernels.c.o
+[ 63%] Building C object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cpu/leaky_relu_backward_kernels.c.o
+[ 64%] Building C object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cpu/log_backward_kernels.c.o
+[ 65%] Building C object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cpu/matmul_backward_kernels.c.o
+[ 66%] Building C object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cpu/max_backward_kernels.c.o
+[ 67%] Building C object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cpu/mean_backward_kernels.c.o
+[ 68%] Building C object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cpu/min_backward_kernels.c.o
+[ 69%] Building C object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cpu/mul_backward_kernels.c.o
+[ 70%] Building C object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cpu/relu_backward_kernels.c.o
+[ 71%] Building C object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cpu/squeeze_backward_kernels.c.o
+[ 72%] Building C object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cpu/sub_backward_kernels.c.o
+[ 73%] Building C object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cpu/sum_backward_kernels.c.o
+[ 74%] Building C object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cpu/transpose_backward_kernels.c.o
+[ 75%] Building C object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cpu/unsqueeze_backward_kernels.c.o
+[ 76%] Building C object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cpu/view_backward_kernels.c.o
+[ 77%] Building CUDA object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cuda/abs_backward_kernels.cu.o
+[ 78%] Building CUDA object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cuda/add_backward_kernels.cu.o
+[ 79%] Building CUDA object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cuda/broadcast_backward_kernels.cu.o
+[ 80%] Building CUDA object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cuda/exp_backward_kernels.cu.o
+[ 81%] Building CUDA object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cuda/expand_backward_kernels.cu.o
+[ 82%] Building CUDA object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cuda/init_backward_kernels.cu.o
+[ 83%] Building CUDA object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cuda/leaky_relu_backward_kernels.cu.o
+[ 84%] Building CUDA object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cuda/log_backward_kernels.cu.o
+[ 85%] Building CUDA object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cuda/matmul_backward_kernels.cu.o
+[ 86%] Building CUDA object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cuda/max_backward_kernels.cu.o
+[ 87%] Building CUDA object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cuda/mean_backward_kernels.cu.o
+[ 88%] Building CUDA object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cuda/min_backward_kernels.cu.o
+[ 89%] Building CUDA object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cuda/mul_backward_kernels.cu.o
+[ 90%] Building CUDA object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cuda/relu_backward_kernels.cu.o
+[ 91%] Building CUDA object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cuda/squeeze_backward_kernels.cu.o
+[ 92%] Building CUDA object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cuda/sub_backward_kernels.cu.o
+[ 93%] Building CUDA object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cuda/sum_backward_kernels.cu.o
+[ 94%] Building CUDA object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cuda/transpose_backward_kernels.cu.o
+[ 95%] Building CUDA object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cuda/unsqueeze_backward_kernels.cu.o
+[ 96%] Building CUDA object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cuda/view_backward_kernels.cu.o
+[ 97%] Building CXX object CMakeFiles/plast_cpp_core_lib.dir/src/plast/ops/init/init.cpp.o
+[ 98%] Linking CXX static library libplast_cpp_core_lib.a
+[ 98%] Built target plast_cpp_core_lib
+[ 98%] Building CXX object CMakeFiles/_plast_cpp_core.dir/plast/cpp_bindings/pybind_module.cpp.o
+[ 99%] Linking CUDA device code CMakeFiles/_plast_cpp_core.dir/cmake_device_link.o
+[100%] Linking CXX shared library _plast_cpp_core.cpython-313-x86_64-linux-gnu.so
+[100%] Built target _plast_cpp_core
+make[1]: Leaving directory '/home/vixel/code/plast/build'
+cp build/_plast_cpp_core.cpython-313-x86_64-linux-gnu.so plast/
+venv/bin/pip install -e . --force-reinstall
+Obtaining file:///home/vixel/code/plast
+  Installing build dependencies: started
+  Installing build dependencies: finished with status 'done'
+  Checking if build backend supports build_editable: started
+  Checking if build backend supports build_editable: finished with status 'done'
+  Getting requirements to build editable: started
+  Getting requirements to build editable: finished with status 'done'
+  Installing backend dependencies: started
+  Installing backend dependencies: finished with status 'done'
+  Preparing editable metadata (pyproject.toml): started
+  Preparing editable metadata (pyproject.toml): finished with status 'done'
+Collecting numpy (from axon-dl==0.1.4)
+  Using cached numpy-2.3.5-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl.metadata (62 kB)
+Collecting pyyaml (from axon-dl==0.1.4)
+  Using cached pyyaml-6.0.3-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (2.4 kB)
+Using cached numpy-2.3.5-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (16.6 MB)
+Using cached pyyaml-6.0.3-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (801 kB)
+Building wheels for collected packages: axon-dl
+  Building editable for axon-dl (pyproject.toml): started
+  Building editable for axon-dl (pyproject.toml): finished with status 'done'
+  Created wheel for axon-dl: filename=axon_dl-0.1.4-0.editable-py3-none-any.whl size=7313 sha256=b9641211c29b52937146c581f96c0613db5211ee7e2d26a44181b6f1fec657db
+  Stored in directory: /var/tmp/pip-ephem-wheel-cache-i2i3ko9n/wheels/b7/55/1c/e7874e95a87912ade2a2ad01c2c443a195813d1690b6e38ee0
+Successfully built axon-dl
+Installing collected packages: pyyaml, numpy, axon-dl
+  Attempting uninstall: pyyaml
+    Found existing installation: PyYAML 6.0.3
+    Uninstalling PyYAML-6.0.3:
+      Successfully uninstalled PyYAML-6.0.3
+  Attempting uninstall: numpy
+    Found existing installation: numpy 2.3.5
+    Uninstalling numpy-2.3.5:
+      Successfully uninstalled numpy-2.3.5
+  Attempting uninstall: axon-dl
+    Found existing installation: axon-dl 0.1.4
+    Uninstalling axon-dl-0.1.4:
+      Successfully uninstalled axon-dl-0.1.4
+
+Successfully installed axon-dl-0.1.4 numpy-2.3.5 pyyaml-6.0.3
+--- Build complete ---
+--- Running Python tests ---
+venv/bin/pytest tests -v
+============================= test session starts ==============================
+platform linux -- Python 3.13.11, pytest-9.0.1, pluggy-1.6.0 -- /home/vixel/code/plast/venv/bin/python3
+cachedir: .pytest_cache
+rootdir: /home/vixel/code/plast
+configfile: pyproject.toml
+collecting ... collected 77 items
+
+tests/test_core.py::TestTensorCore::test_tensor_init PASSED              [  1%]
+tests/test_core.py::TestTensorCore::test_tensor_init_no_grad PASSED      [  2%]
+tests/test_core.py::TestTensorCore::test_tensor_init_default_device PASSED [  3%]
+tests/test_core.py::TestTensorCore::test_tensor_data_property PASSED     [  5%]
+tests/test_core.py::TestTensorCore::test_tensor_shape_property PASSED    [  6%]
+tests/test_core.py::TestTensorCore::test_tensor_numel PASSED             [  7%]
+tests/test_core.py::TestTensorCore::test_tensor_add PASSED               [  9%]
+tests/test_core.py::TestTensorCore::test_tensor_sub PASSED               [ 10%]
+tests/test_data.py::TestDataset::test_abstract_methods_raise_error PASSED [ 11%]
+tests/test_data.py::TestDataset::test_concrete_dataset_getitem PASSED    [ 12%]
+tests/test_data.py::TestDataset::test_concrete_dataset_len PASSED        [ 14%]
+tests/test_experiment.py::TestExperiment::test_experiment_init PASSED    [ 15%]
+tests/test_experiment.py::TestExperiment::test_log_hyperparameter PASSED [ 16%]
+tests/test_experiment.py::TestExperiment::test_log_metric PASSED         [ 18%]
+tests/test_experiment.py::TestExperiment::test_log_artifact PASSED       [ 19%]
+tests/test_experiment.py::TestExperiment::test_save_and_load_experiment PASSED [ 20%]
+tests/test_experiment.py::TestExperiment::test_load_nonexistent_experiment PASSED [ 22%]
+tests/test_tensor.py::TestTensorInitialization::test_init_from_numpy_array PASSED [ 23%]
+tests/test_tensor.py::TestTensorInitialization::test_init_from_list PASSED [ 24%]
+tests/test_tensor.py::TestTensorInitialization::test_init_from_tuple PASSED [ 25%]
+tests/test_tensor.py::TestTensorInitialization::test_init_with_shape_and_dtype PASSED [ 27%]
+tests/test_tensor.py::TestTensorInitialization::test_init_with_device PASSED [ 28%]
+tests/test_tensor.py::TestTensorInitialization::test_init_unsupported_data_type PASSED [ 29%]
+tests/test_tensor.py::TestTensorInitialization::test_init_data_shape_mismatch PASSED [ 31%]
+tests/test_tensor.py::TestTensorInitialization::test_init_unsupported_numpy_dtype PASSED [ 32%]
+tests/test_tensor.py::TestTensorInitialization::test_init_no_data_or_shape PASSED [ 33%]
+tests/test_tensor.py::TestTensorInitialization::test_init_with_cpp_node PASSED [ 35%]
+tests/test_tensor.py::TestTensorProperties::test_shape_property PASSED   [ 36%]
+tests/test_tensor.py::TestTensorProperties::test_dtype_property PASSED   [ 37%]
+tests/test_tensor.py::TestTensorProperties::test_device_property PASSED  [ 38%]
+tests/test_tensor.py::TestTensorProperties::test_data_property PASSED    [ 40%]
+tests/test_tensor.py::TestTensorUnaryOperations::test_abs PASSED         [ 41%]
+tests/test_tensor.py::TestTensorUnaryOperations::test_relu PASSED        [ 42%]
+tests/test_tensor.py::TestTensorUnaryOperations::test_leaky_relu PASSED  [ 44%]
+tests/test_tensor.py::TestTensorUnaryOperations::test_exp PASSED         [ 45%]
+tests/test_tensor.py::TestTensorUnaryOperations::test_log PASSED         [ 46%]
+tests/test_tensor.py::TestTensorBinaryOperations::test_add_tensor_tensor PASSED [ 48%]
+tests/test_tensor.py::TestTensorBinaryOperations::test_add_tensor_scalar PASSED [ 49%]
+tests/test_tensor.py::TestTensorBinaryOperations::test_radd_scalar_tensor PASSED [ 50%]
+tests/test_tensor.py::TestTensorBinaryOperations::test_sub_tensor_tensor PASSED [ 51%]
+tests/test_tensor.py::TestTensorBinaryOperations::test_sub_tensor_scalar PASSED [ 53%]
+tests/test_tensor.py::TestTensorBinaryOperations::test_rsub_scalar_tensor PASSED [ 54%]
+tests/test_tensor.py::TestTensorBinaryOperations::test_mul_tensor_tensor PASSED [ 55%]
+tests/test_tensor.py::TestTensorBinaryOperations::test_mul_tensor_scalar PASSED [ 57%]
+tests/test_tensor.py::TestTensorBinaryOperations::test_matmul_tensor_tensor PASSED [ 58%]
+tests/test_tensor.py::TestTensorBinaryOperations::test_add_broadcast PASSED [ 59%]
+tests/test_tensor.py::TestTensorBinaryOperations::test_mul_broadcast PASSED [ 61%]
+tests/test_tensor.py::TestTensorMovementOperations::test_transpose_property PASSED [ 62%]
+tests/test_tensor.py::TestTensorMovementOperations::test_transpose_method PASSED [ 63%]
+tests/test_tensor.py::TestTensorMovementOperations::test_reshape PASSED  [ 64%]
+tests/test_tensor.py::TestTensorMovementOperations::test_view PASSED     [ 66%]
+tests/test_tensor.py::TestTensorMovementOperations::test_squeeze_all_dims PASSED [ 67%]
+tests/test_tensor.py::TestTensorMovementOperations::test_squeeze_specific_dim PASSED [ 68%]
+tests/test_tensor.py::TestTensorMovementOperations::test_squeeze_no_op PASSED [ 70%]
+tests/test_tensor.py::TestTensorMovementOperations::test_unsqueeze PASSED [ 71%]
+tests/test_tensor.py::TestTensorMovementOperations::test_expand PASSED   [ 72%]
+tests/test_tensor.py::TestTensorMovementOperations::test_broadcast_to PASSED [ 74%]
+tests/test_tensor.py::TestTensorMovementOperations::test_expand_with_new_dims PASSED [ 75%]
+tests/test_tensor.py::TestTensorMovementOperations::test_expand_error_smaller_dims PASSED [ 76%]
+tests/test_tensor.py::TestTensorReductionOperations::test_min_full PASSED [ 77%]
+tests/test_tensor.py::TestTensorReductionOperations::test_min_dim PASSED [ 79%]
+tests/test_tensor.py::TestTensorReductionOperations::test_min_dim_keepdim PASSED [ 80%]
+tests/test_tensor.py::TestTensorReductionOperations::test_max_full PASSED [ 81%]
+tests/test_tensor.py::TestTensorReductionOperations::test_max_dim PASSED [ 83%]
+tests/test_tensor.py::TestTensorReductionOperations::test_max_dim_keepdim PASSED [ 84%]
+tests/test_tensor.py::TestTensorReductionOperations::test_sum_full PASSED [ 85%]
+tests/test_tensor.py::TestTensorReductionOperations::test_sum_dim PASSED [ 87%]
+tests/test_tensor.py::TestTensorReductionOperations::test_sum_dim_keepdim PASSED [ 88%]
+tests/test_tensor.py::TestTensorReductionOperations::test_mean_full PASSED [ 89%]
+tests/test_tensor.py::TestTensorReductionOperations::test_mean_dim PASSED [ 90%]
+tests/test_tensor.py::TestTensorReductionOperations::test_mean_dim_keepdim PASSED [ 92%]
+tests/test_tensor.py::TestTensorDeviceTransfer::test_to_cpu PASSED       [ 93%]
+tests/test_tensor.py::TestTensorDeviceTransfer::test_to_cuda SKIPPED     [ 94%]
+tests/test_tensor.py::TestTensorDeviceTransfer::test_get_data_from_cuda_tensor PASSED [ 96%]
+tests/test_tensor.py::TestTensorUtilityMethods::test_numel PASSED        [ 97%]
+tests/test_tensor.py::TestTensorUtilityMethods::test_numel_large_tensor PASSED [ 98%]
+tests/test_tensor.py::TestAutograd::test_simple_add_backward FAILED      [100%]
+
+=================================== FAILURES ===================================
+____________________ TestAutograd.test_simple_add_backward _____________________
+
+self = <tests.test_tensor.TestAutograd object at 0x7f7554944f50>
+
+    def test_simple_add_backward(self):
+        a_data = np.array([1.0], dtype=np.float32)
+        b_data = np.array([2.0], dtype=np.float32)
+    
+        a = Tensor(data=a_data, requires_grad=True)
+        b = Tensor(data=b_data, requires_grad=True)
+    
+        c = a + b # This creates the computation graph
+    
+        # Perform forward pass to compute c's value and build the graph
+        _ = c.data
+    
+        # Perform backward pass
+        c.backward()
+    
+        # Check gradients
+>       assert a.grad is not None
+E       AssertionError: assert None is not None
+E        +  where None = Tensor(shape=(1,), dtype=<class 'numpy.float32'>, device=DeviceType.CPU).grad
+
+tests/test_tensor.py:479: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_tensor.py::TestAutograd::test_simple_add_backward - Asserti...
+=================== 1 failed, 75 passed, 1 skipped in 0.27s ====================
+make: *** [Makefile:46: test] Error 1

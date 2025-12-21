@@ -39,4 +39,3 @@ void plast_cpu_leaky_relu_kernel_int32(int32_t* out, const int32_t* in, size_t n
         out[i] = (int32_t) ((val > 0.0f) ? val : val * alpha);
     }
 }
-

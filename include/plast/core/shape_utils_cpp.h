@@ -32,5 +32,13 @@ std::vector<size_t> get_effective_broadcast_strides(
     const std::vector<size_t>& input_actual_strides,
     const std::vector<size_t>& target_shape);
 
+// Function to determine the shape to which grad_output needs to be reduced to match input_shape.
+std::vector<size_t> get_reduced_shape(const std::vector<size_t>& grad_shape,
+                                      const std::vector<size_t>& input_shape);
+
+// Function to identify the dimensions along which input_shape was broadcasted to output_shape.
+std::vector<int> get_broadcasted_dims(const std::vector<size_t>& input_shape,
+                                      const std::vector<size_t>& output_shape);
+
 } // namespace core
 } // namespace plast

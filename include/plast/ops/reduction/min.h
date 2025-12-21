@@ -16,11 +16,11 @@ class MinOperation : public BaseOperation
 {
   public:
     MinOperation(int dim, bool keepdim) : dim_(dim), keepdim_(keepdim), full_reduction_(false) {}
-    MinOperation(bool full_reduction) : full_reduction_(full_reduction) {}
+    MinOperation(bool full_reduction) : full_reduction_(full_reduction), dim_(0), keepdim_(false) {}
 
     const std::string& name() const override
     {
-        static std::string op_name = "min";
+        static const std::string op_name = "min";
         return op_name;
     }
 
@@ -57,7 +57,6 @@ class MinOperation : public BaseOperation
     std::vector<tensor::Tensor>
     backward_cpu(const tensor::Tensor& grad_output, const tensor::Tensor& output,
                  const std::vector<const tensor::Tensor*>& inputs) const override;
-
     std::vector<tensor::Tensor>
     backward_cuda(const tensor::Tensor& grad_output, const tensor::Tensor& output,
                   const std::vector<const tensor::Tensor*>& inputs) const override;

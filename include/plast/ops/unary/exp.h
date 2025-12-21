@@ -14,6 +14,8 @@ namespace ops
 class ExpOperation : public BaseOperation
 {
   public:
+    ExpOperation() = default;
+
     const std::string& name() const override
     {
         static const std::string op_name = "Exp";
@@ -36,6 +38,9 @@ class ExpOperation : public BaseOperation
     std::vector<tensor::Tensor>
     backward_cuda(const tensor::Tensor& grad_output, const tensor::Tensor& output,
                   const std::vector<const tensor::Tensor*>& inputs) const override;
+
+  private:
+    mutable std::shared_ptr<const tensor::Tensor> input_tensor_;
 };
 
 } // namespace ops
