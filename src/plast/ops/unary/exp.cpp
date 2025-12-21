@@ -40,6 +40,12 @@ tensor::Tensor ExpOperation::execute_cpu(const std::vector<const tensor::Tensor*
         throw std::runtime_error("Unsupported DType for Exp operation on CPU.");
     }
 
+    // If any input requires grad, the output also requires grad.
+    if (inputs[0]->requires_grad())
+    {
+        output.set_requires_grad(true);
+    }
+
     return output;
 }
 
@@ -74,6 +80,12 @@ tensor::Tensor ExpOperation::execute_cuda(const std::vector<const tensor::Tensor
     // Add more types as needed
     default:
         throw std::runtime_error("Unsupported DType for Exp operation on CUDA.");
+    }
+
+    // If any input requires grad, the output also requires grad.
+    if (inputs[0]->requires_grad())
+    {
+        output.set_requires_grad(true);
     }
 
     return output;

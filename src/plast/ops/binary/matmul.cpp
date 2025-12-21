@@ -84,6 +84,12 @@ tensor::Tensor MatmulOperation::execute_cpu(const std::vector<const tensor::Tens
         throw std::runtime_error("Unsupoorted DType for Matmul operation on CPU.");
     }
 
+    // If any input requires grad, the output also requires grad.
+    if (inputs[0]->requires_grad() || inputs[1]->requires_grad())
+    {
+        output.set_requires_grad(true);
+    }
+
     return output;
 }
 
@@ -192,6 +198,12 @@ tensor::Tensor MatmulOperation::execute_cuda(const std::vector<const tensor::Ten
     break;
     default:
         throw std::runtime_error("Unsupported DType for Matmul operation on CUDA.");
+    }
+
+    // If any input requires grad, the output also requires grad.
+    if (inputs[0]->requires_grad() || inputs[1]->requires_grad())
+    {
+        output.set_requires_grad(true);
     }
 
     return output;

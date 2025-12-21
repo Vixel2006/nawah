@@ -29,7 +29,7 @@ class MeanOperation : public BaseOperation
     {
         if (full_reduction_)
         {
-            return std::vector<size_t>(1, 1);
+            return {};
         }
 
         std::vector<size_t> output_shape = input_shapes[0];

@@ -26,7 +26,7 @@ venv/bin/pip install -r requirements.txt
 Requirement already satisfied: pytest in ./venv/lib/python3.13/site-packages (from -r requirements.txt (line 1)) (9.0.1)
 Requirement already satisfied: flake8 in ./venv/lib/python3.13/site-packages (from -r requirements.txt (line 2)) (7.3.0)
 Requirement already satisfied: black in ./venv/lib/python3.13/site-packages (from -r requirements.txt (line 3)) (25.11.0)
-Requirement already satisfied: numpy in ./venv/lib/python3.13/site-packages (from -r requirements.txt (line 4)) (2.3.5)
+Requirement already satisfied: numpy in ./venv/lib/python3.13/site-packages (from -r requirements.txt (line 4)) (2.4.0)
 Requirement already satisfied: pyyaml in ./venv/lib/python3.13/site-packages (from -r requirements.txt (line 5)) (6.0.3)
 Requirement already satisfied: pybind11 in ./venv/lib/python3.13/site-packages (from -r requirements.txt (line 6)) (3.0.1)
 Requirement already satisfied: iniconfig>=1.0.1 in ./venv/lib/python3.13/site-packages (from pytest->-r requirements.txt (line 1)) (2.3.0)
@@ -81,14 +81,14 @@ Call Stack (most recent call first):
   CMakeLists.txt:10 (find_package)
 This warning is for project developers.  Use -Wno-dev to suppress it.
 
--- Found PythonInterp: /home/vixel/code/plast/venv/bin/python (found suitable version "3.13.11", minimum required is "3.8")
+-- Found PythonInterp: /bin/python3 (found suitable version "3.13.11", minimum required is "3.8")
 -- Found PythonLibs: /usr/lib/libpython3.13.so
 -- Performing Test HAS_FLTO_AUTO
 -- Performing Test HAS_FLTO_AUTO - Success
 -- Found pybind11: /home/vixel/code/plast/venv/lib/python3.13/site-packages/pybind11/include (found version "3.0.1")
 -- Found SLEEF include: /home/vixel/code/plast/vendor/sleef/build/include
 -- Found SLEEF library: /home/vixel/code/plast/vendor/sleef/build/lib/libsleef.a
--- Configuring done (1.8s)
+-- Configuring done (2.3s)
 -- Generating done (0.0s)
 -- Build files have been written to: /home/vixel/code/plast/build
 cmake --build build
@@ -166,7 +166,7 @@ make[1]: Entering directory '/home/vixel/code/plast/build'
 [ 71%] Building C object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cpu/squeeze_backward_kernels.c.o
 [ 72%] Building C object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cpu/sub_backward_kernels.c.o
 [ 73%] Building C object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cpu/sum_backward_kernels.c.o
-[ 74%] Building C object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cpu/transpose_backward_kernels.c.o
+[ 74%] Building C object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cpu/transpose_kernels.c.o
 [ 75%] Building C object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cpu/unsqueeze_backward_kernels.c.o
 [ 76%] Building C object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cpu/view_backward_kernels.c.o
 [ 77%] Building CUDA object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cuda/abs_backward_kernels.cu.o
@@ -186,7 +186,7 @@ make[1]: Entering directory '/home/vixel/code/plast/build'
 [ 91%] Building CUDA object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cuda/squeeze_backward_kernels.cu.o
 [ 92%] Building CUDA object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cuda/sub_backward_kernels.cu.o
 [ 93%] Building CUDA object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cuda/sum_backward_kernels.cu.o
-[ 94%] Building CUDA object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cuda/transpose_backward_kernels.cu.o
+[ 94%] Building CUDA object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cuda/transpose_kernels.cu.o
 [ 95%] Building CUDA object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cuda/unsqueeze_backward_kernels.cu.o
 [ 96%] Building CUDA object CMakeFiles/plast_cpp_core_lib.dir/src/plast/kernels/cuda/view_backward_kernels.cu.o
 [ 97%] Building CXX object CMakeFiles/plast_cpp_core_lib.dir/src/plast/ops/init/init.cpp.o
@@ -211,16 +211,16 @@ Obtaining file:///home/vixel/code/plast
   Preparing editable metadata (pyproject.toml): started
   Preparing editable metadata (pyproject.toml): finished with status 'done'
 Collecting numpy (from axon-dl==0.1.4)
-  Using cached numpy-2.3.5-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl.metadata (62 kB)
+  Using cached numpy-2.4.0-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl.metadata (6.6 kB)
 Collecting pyyaml (from axon-dl==0.1.4)
   Using cached pyyaml-6.0.3-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (2.4 kB)
-Using cached numpy-2.3.5-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (16.6 MB)
+Using cached numpy-2.4.0-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (16.4 MB)
 Using cached pyyaml-6.0.3-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (801 kB)
 Building wheels for collected packages: axon-dl
   Building editable for axon-dl (pyproject.toml): started
   Building editable for axon-dl (pyproject.toml): finished with status 'done'
-  Created wheel for axon-dl: filename=axon_dl-0.1.4-0.editable-py3-none-any.whl size=7313 sha256=b9641211c29b52937146c581f96c0613db5211ee7e2d26a44181b6f1fec657db
-  Stored in directory: /var/tmp/pip-ephem-wheel-cache-i2i3ko9n/wheels/b7/55/1c/e7874e95a87912ade2a2ad01c2c443a195813d1690b6e38ee0
+  Created wheel for axon-dl: filename=axon_dl-0.1.4-0.editable-py3-none-any.whl size=7313 sha256=fff93769d4966b3892fa839727df0c79ec6c1e40d47ee4119ff3074921178634
+  Stored in directory: /var/tmp/pip-ephem-wheel-cache-nqkugo5x/wheels/b7/55/1c/e7874e95a87912ade2a2ad01c2c443a195813d1690b6e38ee0
 Successfully built axon-dl
 Installing collected packages: pyyaml, numpy, axon-dl
   Attempting uninstall: pyyaml
@@ -228,15 +228,15 @@ Installing collected packages: pyyaml, numpy, axon-dl
     Uninstalling PyYAML-6.0.3:
       Successfully uninstalled PyYAML-6.0.3
   Attempting uninstall: numpy
-    Found existing installation: numpy 2.3.5
-    Uninstalling numpy-2.3.5:
-      Successfully uninstalled numpy-2.3.5
+    Found existing installation: numpy 2.4.0
+    Uninstalling numpy-2.4.0:
+      Successfully uninstalled numpy-2.4.0
   Attempting uninstall: axon-dl
     Found existing installation: axon-dl 0.1.4
     Uninstalling axon-dl-0.1.4:
       Successfully uninstalled axon-dl-0.1.4
 
-Successfully installed axon-dl-0.1.4 numpy-2.3.5 pyyaml-6.0.3
+Successfully installed axon-dl-0.1.4 numpy-2.4.0 pyyaml-6.0.3
 --- Build complete ---
 --- Running Python tests ---
 venv/bin/pytest tests -v
@@ -328,7 +328,7 @@ tests/test_tensor.py::TestAutograd::test_simple_add_backward FAILED      [100%]
 =================================== FAILURES ===================================
 ____________________ TestAutograd.test_simple_add_backward _____________________
 
-self = <tests.test_tensor.TestAutograd object at 0x7f7554944f50>
+self = <tests.test_tensor.TestAutograd object at 0x7fe6b1cfa0d0>
 
     def test_simple_add_backward(self):
         a_data = np.array([1.0], dtype=np.float32)
@@ -351,6 +351,11 @@ E       AssertionError: assert None is not None
 E        +  where None = Tensor(shape=(1,), dtype=<class 'numpy.float32'>, device=DeviceType.CPU).grad
 
 tests/test_tensor.py:479: AssertionError
+----------------------------- Captured stdout call -----------------------------
+Processing node with 2 inputs for gradient accumulation.
+Setting grad for node with output tensor shape: 1
+No gradient found for node.
+No gradient found for node.
 =========================== short test summary info ============================
 FAILED tests/test_tensor.py::TestAutograd::test_simple_add_backward - Asserti...
 =================== 1 failed, 75 passed, 1 skipped in 0.27s ====================

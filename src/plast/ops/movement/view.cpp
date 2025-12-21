@@ -15,7 +15,14 @@ tensor::Tensor ViewOperation::execute_cpu(const std::vector<const tensor::Tensor
     }
 
     const tensor::Tensor* input_tensor = inputs[0];
-    return input_tensor->reshape(new_shape_);
+    tensor::Tensor output = input_tensor->reshape(new_shape_);
+
+    if (input_tensor->requires_grad())
+    {
+        output.set_requires_grad(true);
+    }
+
+    return output;
 }
 
 tensor::Tensor ViewOperation::execute_cuda(const std::vector<const tensor::Tensor*>& inputs) const

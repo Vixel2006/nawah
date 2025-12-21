@@ -17,25 +17,34 @@ tensor::Tensor SqueezeOperation::execute_cpu(const std::vector<const tensor::Ten
     }
 
     const tensor::Tensor* input_tensor = inputs[0];
-    std::vector<size_t> output_shape = input_tensor->shape();
-    std::vector<size_t> output_strides = input_tensor->strides();
+    tensor::Tensor output = [&]() {
+        std::vector<size_t> output_shape = input_tensor->shape();
+        std::vector<size_t> output_strides = input_tensor->strides();
 
-    if (N_ >= output_shape.size())
+        if (N_ >= output_shape.size())
+        {
+            throw std::runtime_error("Squeeze dimension out of bounds.");
+        }
+
+        if (output_shape[N_] == 1)
+        {
+            output_shape.erase(output_shape.begin() + N_);
+            output_strides.erase(output_strides.begin() + N_);
+        }
+        else
+        {
+            return input_tensor->view(input_tensor->shape(), input_tensor->strides());
+        }
+
+        return input_tensor->reshape(output_shape, output_strides);
+    }();
+
+    if (input_tensor->requires_grad())
     {
-        throw std::runtime_error("Squeeze dimension out of bounds.");
+        output.set_requires_grad(true);
     }
 
-    if (output_shape[N_] == 1)
-    {
-        output_shape.erase(output_shape.begin() + N_);
-        output_strides.erase(output_strides.begin() + N_);
-    }
-    else
-    {
-        return input_tensor->view(input_tensor->shape(), input_tensor->strides());
-    }
-
-    return input_tensor->reshape(output_shape, output_strides);
+    return output;
 }
 
 tensor::Tensor

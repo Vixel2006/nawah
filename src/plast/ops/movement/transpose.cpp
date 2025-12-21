@@ -16,18 +16,27 @@ TransposeOperation::execute_cpu(const std::vector<const tensor::Tensor*>& inputs
     }
 
     const tensor::Tensor* input_tensor = inputs[0];
-    std::vector<size_t> output_shape = input_tensor->shape();
-    std::vector<size_t> output_strides = input_tensor->strides();
+    tensor::Tensor output = [&]() {
+        std::vector<size_t> output_shape = input_tensor->shape();
+        std::vector<size_t> output_strides = input_tensor->strides();
 
-    if (N >= output_shape.size() || M >= output_shape.size())
+        if (N >= output_shape.size() || M >= output_shape.size())
+        {
+            throw std::runtime_error("Transpose dimensions out of bounds.");
+        }
+
+        std::swap(output_shape[N], output_shape[M]);
+        std::swap(output_strides[N], output_strides[M]);
+
+        return input_tensor->reshape(output_shape, output_strides);
+    }();
+
+    if (input_tensor->requires_grad())
     {
-        throw std::runtime_error("Transpose dimensions out of bounds.");
+        output.set_requires_grad(true);
     }
 
-    std::swap(output_shape[N], output_shape[M]);
-    std::swap(output_strides[N], output_strides[M]);
-
-    return input_tensor->reshape(output_shape, output_strides);
+    return output;
 }
 
 tensor::Tensor

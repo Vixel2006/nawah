@@ -86,10 +86,6 @@ void increment_coords(std::vector<size_t>& coords, const std::vector<size_t>& sh
 Tensor::Tensor(const std::vector<size_t>& shape, core::DType dtype, core::DeviceType device)
     : shape_(shape), dtype_(dtype)
 {
-    if (shape_.empty())
-    {
-        shape_.push_back(1); // Scalar tensor
-    }
     strides_ = calculate_contiguous_strides(shape_);
     size_t bytes = num_elements() * get_dtype_size(dtype_);
     buffer_ = std::make_shared<core::DataBuffer>(bytes, device);
@@ -235,24 +231,63 @@ Tensor Tensor::clone() const
     // Create a new contiguous tensor with the same shape, dtype, and device
     Tensor new_tensor(shape_, dtype_, device());
 
-    // If the input tensor is contiguous, a simple data copy is sufficient
-    size_t bytes = nbytes();
-    if (bytes > 0)
+    // If the tensor is contiguous, a single memcpy is fastest.
+    // Note: A proper is_contiguous() check would be more robust.
+    // For now, we assume we can check if strides are default.
+    bool is_contiguous = (strides_ == calculate_contiguous_strides(shape_));
+
+    size_t element_size = get_dtype_size(dtype_);
+    if (is_contiguous)
     {
-        if (device() == core::DeviceType::CPU)
+        size_t bytes_to_copy = num_elements() * element_size;
+        if (bytes_to_copy > 0)
         {
-            std::memcpy(new_tensor.data(), data(), bytes);
-        }
-        else if (device() == core::DeviceType::CUDA)
-        {
+            if (device() == core::DeviceType::CPU)
+            {
+                std::memcpy(new_tensor.data(), data(), bytes_to_copy);
+            }
+            else if (device() == core::DeviceType::CUDA)
+            {
 #ifdef PLAST_CUDA_ENABLED
-            PLAST_CUDA_CHECK(
-                cudaMemcpy(new_tensor.data(), data(), bytes, cudaMemcpyDeviceToDevice));
+                PLAST_CUDA_CHECK(cudaMemcpy(new_tensor.data(), data(), bytes_to_copy,
+                                            cudaMemcpyDeviceToDevice));
 #else
-            throw std::runtime_error("CUDA is not enabled. Cannot perform CUDA memcpy.");
+                throw std::runtime_error("CUDA is not enabled. Cannot perform CUDA memcpy.");
 #endif
+            }
         }
     }
+    else
+    {
+        // Non-contiguous case: copy element by element.
+        // This is slow and should ideally be handled by optimized kernels.
+        if (device() != core::DeviceType::CPU)
+        {
+            // For now, we only support non-contiguous clone on the CPU.
+            // A proper implementation would involve a custom CUDA kernel.
+            throw std::runtime_error(
+                "Non-contiguous clone is currently only supported on the CPU.");
+        }
+
+        std::vector<size_t> coords(ndim(), 0);
+        char* dest_ptr = static_cast<char*>(new_tensor.data());
+        const char* src_ptr_base = static_cast<const char*>(data());
+
+        for (size_t i = 0; i < num_elements(); ++i)
+        {
+            size_t src_offset = 0;
+            for (size_t d = 0; d < ndim(); ++d)
+            {
+                src_offset += coords[d] * strides_[d];
+            }
+
+            std::memcpy(dest_ptr, src_ptr_base + src_offset * element_size, element_size);
+
+            dest_ptr += element_size;
+            increment_coords(coords, shape_);
+        }
+    }
+
     return new_tensor;
 }
 

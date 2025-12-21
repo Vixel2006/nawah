@@ -84,6 +84,7 @@ class Tensor
     void set_requires_grad(bool requires_grad) { requires_grad_ = requires_grad; }
     Tensor* grad() { return grad_.get(); }
     const Tensor* grad() const { return grad_.get(); }
+    std::shared_ptr<Tensor> grad_shared_ptr() { return grad_; }
     void set_grad(std::shared_ptr<Tensor> grad) { grad_ = grad; }
 
   private:

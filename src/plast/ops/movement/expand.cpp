@@ -52,6 +52,11 @@ tensor::Tensor ExpandOperation::execute_cpu(const std::vector<const tensor::Tens
                       input_shape_vec.size(), output_data, output_shape_vec.data(),
                       output_shape_vec.size(), item_size);
 
+    if (input_tensor->requires_grad())
+    {
+        output_tensor.set_requires_grad(true);
+    }
+
     return output_tensor;
 }
 
@@ -84,6 +89,11 @@ tensor::Tensor ExpandOperation::execute_cuda(const std::vector<const tensor::Ten
     cuda_expand_kernel(input_data, input_shape_vec.data(), input_strides_vec.data(),
                        input_shape_vec.size(), output_data, output_shape_vec.data(),
                        output_shape_vec.size(), item_size);
+
+    if (input_tensor->requires_grad())
+    {
+        output_tensor.set_requires_grad(true);
+    }
 
     return output_tensor;
 }

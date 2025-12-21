@@ -1,5 +1,5 @@
 #include "plast/execution/engine.h"
-#include "plast/ops/binary/add.h" // Added include for AddOperation
+#include "plast/ops/binary/add.h"
 #include "plast/ops/init/init_ops.h"
 #include <algorithm>
 #include <iostream>
@@ -45,7 +45,6 @@ ExecutionEngine::topological_sort(std::shared_ptr<graph::Node> root_node)
 {
     std::vector<std::shared_ptr<graph::Node>> sorted_nodes;
     std::unordered_map<std::shared_ptr<graph::Node>, bool> visited;
-    
     std::unordered_map<std::shared_ptr<graph::Node>, bool> in_stack;
 
     visit(root_node, visited, in_stack, sorted_nodes);
@@ -61,15 +60,6 @@ ExecutionEngine::execute(std::shared_ptr<graph::Node> root_node)
     }
 
     std::vector<std::shared_ptr<graph::Node>> sorted_nodes = topological_sort(root_node);
-
-    // Clear output tensors for all NON-LEAF nodes in the current graph before execution
-    for (const auto& node : sorted_nodes)
-    {
-        if (!node->is_leaf())
-        {
-            node->clear_output_tensor();
-        }
-    }
 
     for (const auto& node : sorted_nodes)
     {
@@ -102,8 +92,7 @@ ExecutionEngine::execute(std::shared_ptr<graph::Node> root_node)
         }
 
         // Determine target device for execution
-        core::DeviceType target_device =
-            inputs_for_op[0]->device(); // Simple heuristic: use first input's device
+        core::DeviceType target_device = inputs_for_op[0]->device();
         for (size_t i = 1; i < inputs_for_op.size(); ++i)
         {
             if (inputs_for_op[i]->device() != target_device)
@@ -139,153 +128,125 @@ ExecutionEngine::execute(std::shared_ptr<graph::Node> root_node)
     return root_node->get_output_tensor(); // Return the shared_ptr
 }
 
-void ExecutionEngine::backward(std::shared_ptr<graph::Node> root_node,
-                               std::shared_ptr<tensor::Tensor> grad_output)
+std::shared_ptr<plast::tensor::Tensor>
+ExecutionEngine::backward(std::shared_ptr<graph::Node> root_node)
 {
     if (!root_node)
     {
-        throw std::runtime_error("Cannot perform backward pass on a null graph node.");
+        throw std::runtime_error("Cannot execute a null graph node.");
     }
 
-    // Clear gradients for all nodes in the graph
+    // Ensure the forward pass has been executed, as backward pass needs the output tensors.
+    if (!root_node->has_output_tensor())
+    {
+        execute(root_node);
+    }
+
+    // Topologically sort the graph to process nodes in a valid order.
     std::vector<std::shared_ptr<graph::Node>> sorted_nodes = topological_sort(root_node);
-    for (const auto& node : sorted_nodes)
-    {
-        node->clear_grad_tensor();
-        if (node->is_leaf() && node->has_output_tensor()) {
-            node->get_output_tensor()->set_grad(nullptr); // Clear grad for leaf tensors
-        }
-    }
-
-    compute_gradients(sorted_nodes, grad_output);
-}
-
-void ExecutionEngine::compute_gradients(std::vector<std::shared_ptr<graph::Node>>& sorted_nodes,
-                                        std::shared_ptr<tensor::Tensor> grad_output)
-{
-    // Initialize gradients for the root node
-    std::shared_ptr<graph::Node> root_node = sorted_nodes.back();
-    if (!root_node->requires_grad())
-    {
-        // If the root node does not require gradients, there's nothing to do.
-        return;
-    }
-
-    if (grad_output)
-    {
-        root_node->set_grad_tensor(grad_output);
-    }
-    else
-    {
-        // Default grad_output is a tensor of ones with the same shape as the root_node's output
-        if (!root_node->has_output_tensor())
-        {
-            throw std::runtime_error(
-                "Root node output tensor not available to initialize grad_output.");
-        }
-        root_node->set_grad_tensor(plast::ops::init::ones(
-            root_node->get_output_tensor()->shape(), root_node->get_output_tensor()->dtype(),
-            root_node->get_output_tensor()->device()));
-    }
-
-    // Iterate through nodes in reverse topological order
+    // Reverse the order for the backward pass (from output to inputs).
     std::reverse(sorted_nodes.begin(), sorted_nodes.end());
 
+    // Map to store and accumulate gradients for each node.
+    std::unordered_map<std::shared_ptr<graph::Node>, std::shared_ptr<tensor::Tensor>> gradient_map;
+
+    // The gradient of the final output is initialized to 1.
+    gradient_map[root_node] =
+        ops::init::ones(root_node->shape(), root_node->get_output_tensor()->dtype(),
+                        root_node->get_output_tensor()->device());
+
+    ops::AddOperation add_op; // For accumulating gradients.
+
     for (const auto& node : sorted_nodes)
     {
-        if (!node->requires_grad())
-        {
-            continue; // Skip if no gradient is required
-        }
-
-        // Ensure the node has a gradient tensor (it should have been set for the root, or propagated)
-        if (!node->has_grad_tensor())
-        {
-            throw std::runtime_error("Gradient tensor not available for node during backward pass.");
-        }
-
         if (node->is_leaf())
         {
-            std::shared_ptr<tensor::Tensor> leaf_tensor = node->get_output_tensor();
-            std::shared_ptr<tensor::Tensor> grad_to_accumulate = node->get_grad_tensor();
-
-            if (leaf_tensor->grad() == nullptr)
-            {
-                leaf_tensor->set_grad(grad_to_accumulate);
-            }
-            else
-            {
-                // Accumulate gradients
-                ops::AddOperation add_op;
-                std::vector<const tensor::Tensor*> add_inputs = {leaf_tensor->grad(), grad_to_accumulate.get()};
-                tensor::Tensor accumulated_grad = add_op.execute_cpu(add_inputs);
-                leaf_tensor->set_grad(std::make_shared<tensor::Tensor>(std::move(accumulated_grad)));
-            }
+            continue; // Leaf nodes are inputs, their gradients are accumulated.
         }
-        else // Non-leaf (operation) nodes
+
+        // Get the gradient flowing backwards from the output of this node.
+        auto it = gradient_map.find(node);
+        if (it == gradient_map.end())
         {
-            // Get the output tensor of this node (from forward pass)
-            std::shared_ptr<tensor::Tensor> output = node->get_output_tensor();
-            if (!output)
+            // This node does not contribute to the final output, so we can skip it.
+            continue;
+        }
+        const auto& grad_output = *(it->second);
+
+        // Get the tensors that were inputs to this node's forward operation.
+        std::vector<const tensor::Tensor*> inputs_for_op = node->get_inputs_as_raw_pointers();
+        core::DeviceType target_device = node->get_output_tensor()->device();
+
+        // Compute the gradients with respect to the inputs of the operation.
+        std::vector<tensor::Tensor> grad_inputs;
+        if (target_device == core::DeviceType::CPU)
+        {
+            grad_inputs = node->operation()->backward_cpu(grad_output, *node->get_output_tensor(),
+                                                          inputs_for_op);
+        }
+        else if (target_device == core::DeviceType::CUDA)
+        {
+            grad_inputs = node->operation()->backward_cuda(grad_output, *node->get_output_tensor(),
+                                                           inputs_for_op);
+        }
+        else
+        {
+            throw std::runtime_error("Unsupported device type for backward operation execution.");
+        }
+
+        // Distribute and accumulate the computed gradients to the nodes that produced the inputs.
+        for (size_t i = 0; i < node->inputs().size(); ++i)
+        {
+            auto input_node = node->inputs()[i];
+            if (!input_node->requires_grad())
             {
-                throw std::runtime_error("Node output tensor not available for backward pass.");
+                continue; // Skip nodes that don't require gradients.
             }
 
-            // Get raw pointers to input tensors for the backward operation
-            std::vector<const tensor::Tensor*> raw_inputs;
-            for (const auto& input_node : node->inputs())
-            {
-                if (!input_node->has_output_tensor())
-                {
-                    throw std::runtime_error("Input node value not computed for backward pass.");
-                }
-                raw_inputs.push_back(input_node->get_output_tensor().get());
-            }
+            tensor::Tensor grad_input = std::move(grad_inputs[i]);
+            auto& current_grad_for_input = gradient_map[input_node];
 
-            // Determine device type for the operation
-            core::DeviceType device = output->device();
-
-            std::vector<tensor::Tensor> input_grads;
-            if (device == core::DeviceType::CPU)
+            if (!current_grad_for_input)
             {
-                input_grads = node->operation()->backward_cpu(*node->get_grad_tensor(), *output, raw_inputs);
-            }
-            else if (device == core::DeviceType::CUDA)
-            {
-                input_grads = node->operation()->backward_cuda(*node->get_grad_tensor(), *output, raw_inputs);
+                // This is the first gradient for this node, just store it.
+                current_grad_for_input = std::make_shared<tensor::Tensor>(std::move(grad_input));
             }
             else
             {
-                throw std::runtime_error("Unsupported device type for backward pass.");
-            }
-
-            // Propagate gradients to input nodes
-            for (size_t i = 0; i < node->inputs().size(); ++i)
-            {
-                std::shared_ptr<graph::Node> input_node = node->inputs()[i];
-                if (input_node->requires_grad())
+                // Gradient already exists, so we accumulate by adding the new gradient.
+                std::shared_ptr<tensor::Tensor> new_accumulated_grad;
+                if (target_device == core::DeviceType::CPU)
                 {
-                    std::shared_ptr<tensor::Tensor> grad_to_propagate = std::make_shared<tensor::Tensor>(std::move(input_grads[i]));
-                    
-                    if (input_node->get_grad_tensor() == nullptr)
-                    {
-                        input_node->set_grad_tensor(grad_to_propagate);
-                        input_node->get_output_tensor()->set_grad(grad_to_propagate); // Set on the Tensor as well
-                    }
-                    else
-                    {
-                        // Accumulate gradients
-                        ops::AddOperation add_op;
-                        std::vector<const tensor::Tensor*> add_inputs = {input_node->get_grad_tensor().get(), grad_to_propagate.get()};
-                        tensor::Tensor accumulated_grad = add_op.execute_cpu(add_inputs);
-                        std::shared_ptr<tensor::Tensor> accumulated_grad_ptr = std::make_shared<tensor::Tensor>(std::move(accumulated_grad));
-                        input_node->set_grad_tensor(accumulated_grad_ptr);
-                        input_node->get_output_tensor()->set_grad(accumulated_grad_ptr); // Set on the Tensor as well
-                    }
+                    new_accumulated_grad = std::make_shared<tensor::Tensor>(
+                        add_op.execute_cpu({current_grad_for_input.get(), &grad_input}));
                 }
+                else if (target_device == core::DeviceType::CUDA)
+                {
+                    new_accumulated_grad = std::make_shared<tensor::Tensor>(
+                        add_op.execute_cuda({current_grad_for_input.get(), &grad_input}));
+                }
+                else
+                {
+                    throw std::runtime_error("Unsupported device type for gradient accumulation.");
+                }
+                current_grad_for_input = new_accumulated_grad;
             }
         }
     }
+
+    // After the backward pass, set the .grad attribute on each tensor.
+    for (const auto& pair : gradient_map)
+    {
+        if (pair.first->has_output_tensor())
+        {
+            pair.first->get_output_tensor()->set_grad(pair.second);
+        }
+    }
+
+    // Return the gradient of the root node.
+    return root_node->get_output_tensor()->grad()
+               ? root_node->get_output_tensor()->grad_shared_ptr()
+               : nullptr;
 }
 
 } // namespace execution

@@ -54,6 +54,11 @@ BroadcastOperation::execute_cpu(const std::vector<const tensor::Tensor*>& inputs
                          input_shape_vec.size(), output_data, output_shape_vec.data(),
                          output_shape_vec.size(), item_size);
 
+    if (input_tensor->requires_grad())
+    {
+        output_tensor.set_requires_grad(true);
+    }
+
     return output_tensor;
 }
 
@@ -87,6 +92,11 @@ BroadcastOperation::execute_cuda(const std::vector<const tensor::Tensor*>& input
     cuda_broadcast_kernel(input_data, input_shape_vec.data(), input_strides_vec.data(),
                           input_shape_vec.size(), output_data, output_shape_vec.data(),
                           output_shape_vec.size(), item_size);
+
+    if (input_tensor->requires_grad())
+    {
+        output_tensor.set_requires_grad(true);
+    }
 
     return output_tensor;
 }

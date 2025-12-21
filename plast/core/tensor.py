@@ -65,6 +65,9 @@ class Tensor:
 
             if shape is None:
                 shape = data.shape
+                # If the shape is empty (scalar), make it (1,)
+                if shape == ():
+                    shape = (1,)
             else:
                 if data.shape != shape:
                     raise ValueError(
@@ -90,7 +93,6 @@ class Tensor:
             cpp_tensor_value = _plast_cpp_core.from_data(
                 data, list(shape), cpp_dtype, cpp_device
             )
-            cpp_tensor_value.set_requires_grad(requires_grad)
             self._cpp_node = _plast_cpp_core.Node(cpp_tensor_value)
         else:
             # New logic for shape-based initialization (uninitialized tensor)
@@ -119,14 +121,14 @@ class Tensor:
 
             # Create a C++ Tensor object that allocates memory based on shape, dtype, device
             cpp_tensor_value = _plast_cpp_core.Tensor(
-                list(shape), cpp_dtype, cpp_device, requires_grad
+                list(shape), cpp_dtype, cpp_device
             )
             self._cpp_node = _plast_cpp_core.Node(cpp_tensor_value)
+
+        # Set requires_grad on the underlying C++ tensor for all creation paths
+        if requires_grad:
+            self._cpp_node.get_output_tensor().set_requires_grad(True)
         
-        # Set requires_grad for the underlying C++ node
-        # This line is redundant if requires_grad is set on cpp_tensor_value directly
-        # but kept for consistency with Node's requires_grad logic.
-        self._cpp_node.set_requires_grad(requires_grad)
 
     @property
     def data(self) -> np.ndarray:
@@ -136,10 +138,6 @@ class Tensor:
         cpp_tensor = _execution_engine.execute(self._cpp_node)
         
         np_data = cpp_tensor._get_data_as_numpy()
-
-        # If the C++ tensor's shape is [1] (scalar) but numpy returns (1,), reshape to ()
-        if len(cpp_tensor.shape) == 1 and cpp_tensor.shape[0] == 1 and np_data.shape == (1,):
-            return np.array(np_data.item(), dtype=np_data.dtype)
         
         return np_data
 
@@ -149,9 +147,6 @@ class Tensor:
         # This would require the C++ Node to store/infer its output shape
         # For now, we'll execute to get the shape from the resulting tensor
         cpp_tensor = _execution_engine.execute(self._cpp_node)
-        # If the C++ tensor reports shape [1] for a scalar, convert it to ()
-        if len(cpp_tensor.shape) == 1 and cpp_tensor.shape[0] == 1:
-            return ()
         return tuple(cpp_tensor.shape)
 
     @property
@@ -392,37 +387,42 @@ class Tensor:
             return f"Tensor(uncomputed_node, error_on_repr: {e})"
 
     @property
-    def grad(self) -> Optional[Tensor]:
+    def grad(self) -> Optional[np.ndarray]:
         """
         Returns the gradient tensor associated with this tensor.
         """
-        # Get the underlying C++ Tensor object from the node
-        cpp_tensor_value = self._cpp_node.get_output_tensor()
+        # Get the underlying C++ Tensor object from the node.
+        # This may trigger execution if the tensor hasn't been computed,
+        # but for gradients, we assume the forward pass (and thus execution)
+        # has already happened as part of the backward call.
+        try:
+            cpp_tensor_value = self._cpp_node.get_output_tensor()
+        except RuntimeError:
+            # If the node hasn't been computed, it can't have a gradient.
+            return None
 
-        if cpp_tensor_value is None:
-            return None # Or raise an error if this state is unexpected
+        # Access the grad_ shared_ptr directly from the C++ Tensor object
+        cpp_grad_shared_ptr = cpp_tensor_value.grad_shared_ptr()
 
-        # Access the grad_ tensor directly from the C++ Tensor object
-        cpp_grad_tensor = cpp_tensor_value.grad # This calls C++ Tensor::grad()
-
-        if cpp_grad_tensor is None:
+        if cpp_grad_shared_ptr is None:
             return None
 
         # Wrap the C++ grad Tensor in a new Python Tensor.
         # The grad tensor itself is a leaf-like tensor (it doesn't have a grad_fn).
-        return Tensor(cpp_node=_plast_cpp_core.Node(cpp_grad_tensor))
+        grad_node = _plast_cpp_core.Node(cpp_grad_shared_ptr)
+        return Tensor(cpp_node=grad_node).data
 
     # Placeholder for other methods
-    def backward(self, grad_output: Optional[Tensor] = None) -> None:
+    def backward(self) -> Optional[Tensor]:
         """
         Computes the gradients of the current tensor with respect to graph leaves.
+        Returns the gradient of the current tensor if it has one.
         """
-        grad_output_cpp_tensor = None
-        if grad_output is not None:
-            # Execute the grad_output tensor's graph to get its concrete C++ tensor
-            grad_output_cpp_tensor = _execution_engine.execute(grad_output._cpp_node)
-        
-        _execution_engine.backward(self._cpp_node, grad_output_cpp_tensor)
+        cpp_grad_tensor = _execution_engine.backward(self._cpp_node)
+        if cpp_grad_tensor is None:
+            return None
+        grad_node = _plast_cpp_core.Node(cpp_grad_tensor)
+        return Tensor(cpp_node=grad_node)
 
     def numel(self) -> int:
         cpp_tensor = _execution_engine.execute(self._cpp_node)
@@ -433,10 +433,11 @@ class Tensor:
         pass
 
 if __name__ == "__main__":
-    a = Tensor(data=[[[1, 2], [3, 4]], [[5, 6], [7, 8]]], dtype=np.float32, device="cpu")
-    b = Tensor(data=[[1,2], [-3,4]], dtype=np.float32, device="cuda")
+    a = Tensor(data=[[1, 2], [3, 4]], dtype=np.float32, device="cuda", requires_grad=True)
+    b = Tensor(data=[[1,2], [-3,4]], dtype=np.float32, device="cuda", requires_grad=True)
 
-    c = a.T
+    c = a + b
+    c.backward()
 
-    print(c.data)
+    print(c.grad)
 

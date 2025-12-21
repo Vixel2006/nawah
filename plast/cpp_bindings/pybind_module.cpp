@@ -177,13 +177,8 @@ PYBIND11_MODULE(_plast_cpp_core, m)
                       "Whether the tensor requires grad.")
         .def("set_requires_grad", &plast::tensor::Tensor::set_requires_grad,
              py::arg("requires_grad"), "Sets whether the tensor requires grad.")
-        .def_property_readonly(
-            "grad",
-            static_cast<const plast::tensor::Tensor* (plast::tensor::Tensor::*) () const>(
-                &plast::tensor::Tensor::grad),
-            "Returns the gradient tensor associated with this tensor.")
-        .def("set_grad", &plast::tensor::Tensor::set_grad, py::arg("grad"),
-             "Sets the gradient tensor for this tensor.");
+        .def("grad_shared_ptr", &plast::tensor::Tensor::grad_shared_ptr,
+             "Returns the gradient tensor as a shared_ptr.");
 
     // Bind Node class (using std::shared_ptr for ownership management)
     py::class_<plast::graph::Node, std::shared_ptr<plast::graph::Node>>(m, "Node")
@@ -195,10 +190,7 @@ PYBIND11_MODULE(_plast_cpp_core, m)
         .def_property_readonly("inputs", &plast::graph::Node::inputs)
         .def_property_readonly("shape", &plast::graph::Node::shape) // Expose the shape property
         .def("has_output_tensor", &plast::graph::Node::has_output_tensor)
-        .def("get_output_tensor", &plast::graph::Node::get_output_tensor)
-        .def("get_grad_tensor", &plast::graph::Node::get_grad_tensor) // Expose get_grad_tensor
-        .def_property_readonly("requires_grad", &plast::graph::Node::requires_grad)
-        .def("set_requires_grad", &plast::graph::Node::set_requires_grad, py::arg("requires_grad"));
+        .def("get_output_tensor", &plast::graph::Node::get_output_tensor);
 
     // Bind BaseOperation abstract class
     py::class_<plast::ops::BaseOperation, std::shared_ptr<plast::ops::BaseOperation>>(
@@ -274,8 +266,7 @@ PYBIND11_MODULE(_plast_cpp_core, m)
     py::class_<plast::execution::ExecutionEngine>(m, "ExecutionEngine")
         .def(py::init<>())
         .def("execute", &plast::execution::ExecutionEngine::execute)
-        .def("backward", &plast::execution::ExecutionEngine::backward, py::arg("root_node"),
-             py::arg("grad_output") = nullptr, "Computes gradients for the computation graph.");
+        .def("backward", &plast::execution::ExecutionEngine::backward);
 
     // Bind initialization functions
     m.def(

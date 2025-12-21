@@ -33,28 +33,14 @@ class Node
     bool has_output_tensor() const;
     void clear_output_tensor();
 
+    bool requires_grad() const;
+
     std::vector<const tensor::Tensor*> get_inputs_as_raw_pointers() const;
-
-    // Gradient tensor management
-    void clear_grad_tensor();
-    void set_grad_tensor(std::shared_ptr<tensor::Tensor> grad);
-    std::shared_ptr<tensor::Tensor> get_grad_tensor() const;
-    bool has_grad_tensor() const;
-
-    // For autograd
-    bool requires_grad() const { return requires_grad_; }
-    void set_requires_grad(bool requires_grad) { requires_grad_ = requires_grad; }
-
-    // Backward pass
-    void backward(std::shared_ptr<tensor::Tensor> grad_output);
 
   private:
     std::shared_ptr<ops::BaseOperation> op_;
     std::vector<std::shared_ptr<Node>> inputs_;
     std::shared_ptr<tensor::Tensor> output_tensor_;
-    std::shared_ptr<tensor::Tensor> grad_;
-    bool requires_grad_ = false;
-    bool is_leaf_;
 };
 
 } // namespace graph
