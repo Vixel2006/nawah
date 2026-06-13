@@ -18,6 +18,7 @@ extern "C" {
 #include "scheduler/scheduler.h"
 #include "data/dataset.h"
 #include "data/dataloader.h"
+#include "lr_scheduler/lr_scheduler.h"
 // CPU pack declarations
 typedef struct {
   void *data;
@@ -371,4 +372,58 @@ PYBIND11_MODULE(plast_core, m) {
         }
         return py::cast(out_batches);
       });
+
+  struct LRSchedulerDeleter {
+    void operator()(LRScheduler *s) const { free_lr_scheduler(s); }
+  };
+  
+  py::enum_<LRSchedulerType>(m, "LRSchedulerType")
+      .value("STEP_LR", STEP_LR)
+      .value("MULTI_STEP_LR", MULTI_STEP_LR)
+      .value("EXPONENTIAL_LR", EXPONENTIAL_LR)
+      .value("COSINE_ANNEALING_LR", COSINE_ANNEALING_LR)
+      .export_values();
+
+  py::class_<LRScheduler, std::unique_ptr<LRScheduler, LRSchedulerDeleter>>(m, "LRScheduler")
+      .def(py::init([](LRSchedulerType type, std::vector<double> base_lrs, u64 arg1, double arg2, i64 last_epoch) {
+        if (type == STEP_LR) {
+          return std::unique_ptr<LRScheduler, LRSchedulerDeleter>(
+              create_step_lr(base_lrs.data(), base_lrs.size(), arg1, arg2, last_epoch));
+        } else if (type == EXPONENTIAL_LR) {
+          return std::unique_ptr<LRScheduler, LRSchedulerDeleter>(
+              create_exponential_lr(base_lrs.data(), base_lrs.size(), arg2, last_epoch));
+        } else if (type == COSINE_ANNEALING_LR) {
+          return std::unique_ptr<LRScheduler, LRSchedulerDeleter>(
+              create_cosine_annealing_lr(base_lrs.data(), base_lrs.size(), arg1, arg2, last_epoch));
+        }
+        throw std::runtime_error("Unsupported scheduler type for this initializer");
+      }), py::arg("type"), py::arg("base_lrs"), py::arg("arg1"), py::arg("arg2"), py::arg("last_epoch") = -1)
+      .def(py::init([](std::vector<double> base_lrs, std::vector<u64> milestones, double gamma, i64 last_epoch) {
+        return std::unique_ptr<LRScheduler, LRSchedulerDeleter>(
+            create_multi_step_lr(base_lrs.data(), base_lrs.size(), milestones.data(), milestones.size(), gamma, last_epoch));
+      }), py::arg("base_lrs"), py::arg("milestones"), py::arg("gamma"), py::arg("last_epoch") = -1)
+      .def_property("last_epoch", [](const LRScheduler &self) { return self.last_epoch; }, [](LRScheduler &self, i64 epoch) { self.last_epoch = epoch; })
+      .def("step", [](LRScheduler &self, std::vector<double> current_lrs, i64 epoch) {
+        lr_scheduler_step(&self, current_lrs.data(), epoch);
+        return current_lrs;
+      }, py::arg("current_lrs"), py::arg("epoch") = -1);
+
+  struct ReduceLROnPlateauDeleter {
+    void operator()(ReduceLROnPlateau *r) const { free_reduce_lr_on_plateau(r); }
+  };
+
+  py::enum_<ReduceLROnPlateauMode>(m, "ReduceLROnPlateauMode")
+      .value("MIN_MODE", MIN_MODE)
+      .value("MAX_MODE", MAX_MODE)
+      .export_values();
+
+  py::class_<ReduceLROnPlateau, std::unique_ptr<ReduceLROnPlateau, ReduceLROnPlateauDeleter>>(m, "ReduceLROnPlateau")
+      .def(py::init([](u64 num_groups, double factor, u64 patience, double threshold, u64 cooldown, std::vector<double> min_lrs, double eps, ReduceLROnPlateauMode mode) {
+        return std::unique_ptr<ReduceLROnPlateau, ReduceLROnPlateauDeleter>(
+            create_reduce_lr_on_plateau(num_groups, factor, patience, threshold, cooldown, min_lrs.data(), eps, mode));
+      }), py::arg("num_groups"), py::arg("factor"), py::arg("patience"), py::arg("threshold"), py::arg("cooldown"), py::arg("min_lrs"), py::arg("eps"), py::arg("mode"))
+      .def("step", [](ReduceLROnPlateau &self, double metrics, std::vector<double> current_lrs, i64 epoch) {
+        bool reduced = reduce_lr_on_plateau_step(&self, metrics, current_lrs.data(), epoch);
+        return std::make_pair(reduced, current_lrs);
+      }, py::arg("metrics"), py::arg("current_lrs"), py::arg("epoch") = -1);
 }

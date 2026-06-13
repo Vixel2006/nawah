@@ -33,6 +33,7 @@ CPU_OPTIMS    = $(wildcard src/optimizers/cpu/*.c)
 SCHEDULER_SRC = $(wildcard src/scheduler/*.c)
 API_SOURCES   = $(wildcard src/api/*.c)
 DATA_SRC      = $(wildcard src/data/*.c)
+LR_SCHED_SRC  = $(wildcard src/lr_scheduler/*.c)
 CUDA_SOURCES  = $(wildcard src/kernels/cuda/*.cu) $(wildcard src/optimizers/cuda/*.cu) $(wildcard src/core/*.cu)
 
 # MINIMAL build excludes scheduler and optimizers
@@ -44,7 +45,7 @@ ifeq ($(MINIMAL),1)
 endif
 
 # Library sources (CPU-only)
-LIB_C_SOURCES = $(CORE_SOURCES) $(CPU_KERNELS) $(CPU_OPTIMS) $(SCHEDULER_SRC) $(API_SOURCES) $(DATA_SRC)
+LIB_C_SOURCES = $(CORE_SOURCES) $(CPU_KERNELS) $(CPU_OPTIMS) $(SCHEDULER_SRC) $(API_SOURCES) $(DATA_SRC) $(LR_SCHED_SRC)
 
 # Object files
 LIB_C_OBJS  = $(patsubst %.c, %.c.o, $(LIB_C_SOURCES))
@@ -82,7 +83,7 @@ endif
 
 # ── Build standalone binary (existing) ──
 MAIN_SRC = main.c
-C_SOURCES = $(CORE_SOURCES) $(CPU_KERNELS) $(CPU_OPTIMS) $(SCHEDULER_SRC) $(DATA_SRC)
+C_SOURCES = $(CORE_SOURCES) $(CPU_KERNELS) $(CPU_OPTIMS) $(SCHEDULER_SRC) $(DATA_SRC) $(LR_SCHED_SRC)
 
 $(TARGET): $(ALL_C_OBJS) $(CU_OBJS)
 	$(NVCC) $(NVFLAGS) $(INCLUDES) $^ -o $@ -lgomp
@@ -117,6 +118,7 @@ install-headers:
 	cp -r include/optimizers $(PREFIX)/include/
 	cp -r include/scheduler $(PREFIX)/include/
 	cp -r include/data $(PREFIX)/include/
+	cp -r include/lr_scheduler $(PREFIX)/include/
 	@echo "  installed headers to $(INCDIR)/"
 
 install-lib: $(LIB_STATIC)
