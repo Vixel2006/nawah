@@ -8,11 +8,11 @@
 #endif
 
 static LRScheduler *alloc_scheduler(LRSchedulerType type, double *base_lrs, u64 num_groups, i64 last_epoch) {
-  LRScheduler *sched = (LRScheduler *)malloc(sizeof(LRScheduler));
+  LRScheduler *sched = malloc(sizeof(LRScheduler));
   sched->type = type;
   sched->num_groups = num_groups;
   sched->last_epoch = last_epoch;
-  sched->base_lrs = (double *)malloc(sizeof(double) * num_groups);
+  sched->base_lrs = malloc(sizeof(double) * num_groups);
   memcpy(sched->base_lrs, base_lrs, sizeof(double) * num_groups);
   return sched;
 }
@@ -28,7 +28,7 @@ LRScheduler *create_multi_step_lr(double *base_lrs, u64 num_groups, u64 *milesto
   LRScheduler *sched = alloc_scheduler(MULTI_STEP_LR, base_lrs, num_groups, last_epoch);
   sched->multi_step_lr.num_milestones = num_milestones;
   sched->multi_step_lr.gamma = gamma;
-  sched->multi_step_lr.milestones = (u64 *)malloc(sizeof(u64) * num_milestones);
+  sched->multi_step_lr.milestones = malloc(sizeof(u64) * num_milestones);
   memcpy(sched->multi_step_lr.milestones, milestones, sizeof(u64) * num_milestones);
   return sched;
 }
@@ -133,7 +133,7 @@ void lr_scheduler_step(LRScheduler *scheduler, double *current_lrs, i64 epoch) {
 }
 
 ReduceLROnPlateau *create_reduce_lr_on_plateau(u64 num_groups, double factor, u64 patience, double threshold, u64 cooldown, double *min_lrs, double eps, ReduceLROnPlateauMode mode) {
-  ReduceLROnPlateau *sched = (ReduceLROnPlateau *)malloc(sizeof(ReduceLROnPlateau));
+  ReduceLROnPlateau *sched = malloc(sizeof(ReduceLROnPlateau));
   sched->factor = factor;
   sched->patience = patience;
   sched->threshold = threshold;
@@ -142,7 +142,7 @@ ReduceLROnPlateau *create_reduce_lr_on_plateau(u64 num_groups, double factor, u6
   sched->mode = mode;
   sched->num_groups = num_groups;
   
-  sched->min_lrs = (double *)malloc(sizeof(double) * num_groups);
+  sched->min_lrs = malloc(sizeof(double) * num_groups);
   memcpy(sched->min_lrs, min_lrs, sizeof(double) * num_groups);
   
   sched->best = (mode == MIN_MODE) ? INFINITY : -INFINITY;

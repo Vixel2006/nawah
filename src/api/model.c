@@ -12,7 +12,7 @@
 
 static void kaiming_init(Tensor *t, u64 n) {
   float scale = sqrtf(2.0f / (float)t->shape[0]);
-  float *buf = (float *)malloc(n * sizeof(float));
+  float *buf = malloc(n * sizeof(float));
   for (u64 i = 0; i < n; ++i)
     buf[i] = ((float)rand() / RAND_MAX * 2.0f - 1.0f) * scale;
   memcpy(t->data, buf, n * sizeof(float));
@@ -521,7 +521,7 @@ static void compile_layer(PlastModel *m, int idx, const u64 *in_shape, u64 in_nd
     Tensor *gamma = alloc_tensor(m, (u64[]){C}, 1, true, NULL);
     {
       u64 n = C;
-      float *buf = (float *)malloc(n * sizeof(float));
+      float *buf = malloc(n * sizeof(float));
       for (u64 i = 0; i < n; ++i)
         buf[i] = 1.0f;
       memcpy(gamma->data, buf, n * sizeof(float));
@@ -621,7 +621,7 @@ static void compile_layer(PlastModel *m, int idx, const u64 *in_shape, u64 in_nd
 
     Tensor *gamma_n = alloc_tensor(m, (u64[]){norm_dim}, 1, true, NULL);
     {
-      float *buf = (float *)malloc(norm_dim * sizeof(float));
+      float *buf = malloc(norm_dim * sizeof(float));
       for (u64 i = 0; i < norm_dim; ++i)
         buf[i] = 1.0f;
       memcpy(gamma_n->data, buf, norm_dim * sizeof(float));
@@ -863,7 +863,7 @@ void plast_model_print_weights(const PlastModel *m) {
   for (int i = 0; i < m->num_params; ++i) {
     const Tensor *t = m->params[i];
     u64 n = numel(t);
-    float *buf = (float *)malloc(n * sizeof(float));
+    float *buf = malloc(n * sizeof(float));
     memcpy(buf, t->data, n * sizeof(float));
     printf("  %s [", m->param_names[i]);
     for (u64 j = 0; j < t->ndim; ++j) {
@@ -894,7 +894,7 @@ void plast_model_set_weight_init(PlastModel *m, int layer_idx, plast_init_fn fn)
 Tensor *plast_tensor_from_array(const float *data, const u64 *shape, u64 ndim) {
   u64 *strides = compute_strides(shape, ndim);
   u64 n = product(shape, ndim);
-  Tensor *t = (Tensor *)malloc(sizeof(Tensor));
+  Tensor *t = malloc(sizeof(Tensor));
   memset(t, 0, sizeof(Tensor));
   t->ndim = ndim;
   t->device = CPU;
@@ -911,7 +911,7 @@ Tensor *plast_tensor_from_array(const float *data, const u64 *shape, u64 ndim) {
 }
 
 Tensor *plast_scalar(float value, DEVICE device) {
-  Tensor *t = (Tensor *)malloc(sizeof(Tensor));
+  Tensor *t = malloc(sizeof(Tensor));
   memset(t, 0, sizeof(Tensor));
   t->ndim = 1;
   t->shape[0] = 1;
@@ -928,7 +928,7 @@ Tensor *plast_scalar(float value, DEVICE device) {
 
 void plast_tensor_print(const Tensor *t, const char *name) {
   u64 n = numel(t);
-  float *buf = (float *)malloc(n * sizeof(float));
+  float *buf = malloc(n * sizeof(float));
   memcpy(buf, t->data, n * sizeof(float));
 
   printf("%s [", name ? name : "Tensor");

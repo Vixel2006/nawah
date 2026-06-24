@@ -7,7 +7,7 @@
 
 static Tensor *alloc_loss_tensor(Arena *meta, Arena *data, DEVICE device, const u64 *shape,
                                  u64 ndim) {
-  u64 *strides = (u64 *)arena_alloc(meta, ndim * sizeof(u64), 8);
+  u64 *strides = arena_alloc(meta, ndim * sizeof(u64), 8);
   if (!strides)
     return NULL;
   strides[ndim - 1] = 1;
@@ -25,7 +25,7 @@ static Tensor *add_loss_node(Arena *meta, Arena *data, Tensor **inputs, int num_
   Tensor *output = alloc_loss_tensor(meta, data, device, shape, ndim);
   if (!output)
     return NULL;
-  Tensor **inputs_copy = (Tensor **)arena_alloc(meta, num_inputs * sizeof(Tensor *), 8);
+  Tensor **inputs_copy = arena_alloc(meta, num_inputs * sizeof(Tensor *), 8);
   for (int i = 0; i < num_inputs; ++i)
     inputs_copy[i] = inputs[i];
   arena_node_alloc(meta, inputs_copy, num_inputs, output, get_op_impl(op_type), op_type, params);

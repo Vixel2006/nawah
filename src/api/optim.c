@@ -45,10 +45,10 @@ static void adamw_free_fn(void *state) {
 }
 
 PlastOptimizer *plast_optim_sgd_create(float lr) {
-  PlastOptimizer *opt = (PlastOptimizer *)malloc(sizeof(PlastOptimizer));
+  PlastOptimizer *opt = malloc(sizeof(PlastOptimizer));
   if (!opt)
     return NULL;
-  SgdState *s = (SgdState *)malloc(sizeof(SgdState));
+  SgdState *s = malloc(sizeof(SgdState));
   if (!s) {
     free(opt);
     return NULL;
@@ -62,10 +62,10 @@ PlastOptimizer *plast_optim_sgd_create(float lr) {
 }
 
 PlastOptimizer *plast_optim_adam_create(float lr, float beta1, float beta2, float epsilon) {
-  PlastOptimizer *opt = (PlastOptimizer *)malloc(sizeof(PlastOptimizer));
+  PlastOptimizer *opt = malloc(sizeof(PlastOptimizer));
   if (!opt)
     return NULL;
-  AdamState *s = (AdamState *)calloc(1, sizeof(AdamState));
+  AdamState *s = calloc(1, sizeof(AdamState));
   if (!s) {
     free(opt);
     return NULL;
@@ -89,10 +89,10 @@ PlastOptimizer *plast_optim_adam_create(float lr, float beta1, float beta2, floa
 
 PlastOptimizer *plast_optim_adamw_create(float lr, float beta1, float beta2, float epsilon,
                                          float weight_decay) {
-  PlastOptimizer *opt = (PlastOptimizer *)malloc(sizeof(PlastOptimizer));
+  PlastOptimizer *opt = malloc(sizeof(PlastOptimizer));
   if (!opt)
     return NULL;
-  AdamWState *s = (AdamWState *)calloc(1, sizeof(AdamWState));
+  AdamWState *s = calloc(1, sizeof(AdamWState));
   if (!s) {
     free(opt);
     return NULL;
