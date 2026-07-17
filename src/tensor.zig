@@ -1,8 +1,7 @@
 const std = @import("std");
 const assert = std.debug.assert;
-const c_api = @import("c_api.zig");
 
-pub const MAX_NDIM = c_api.MAX_NDIM;
+pub const MAX_NDIM = 8;
 pub const Device = enum(u32) {
     CPU = 0,
     CUDA = 1,
@@ -38,26 +37,16 @@ pub fn Tensor(comptime T: type) type {
         pub fn zeros(allocator: std.mem.Allocator, shape: []const u64, requires_grad: bool) !Self {
             var t = try init(allocator, shape, requires_grad);
             const n = numel(&t.shape, t.ndim);
-            const buf = try allocator.alloc(T, n);
-            @memset(buf, 0);
-            t.data = buf;
-
-            var c_t = t.toCTensor();
-            c_api.zeros_cpu(&c_t, n);
-
+            t.data = try allocator.alloc(T, n);
+            @memset(t.data.?, 0);
             return t;
         }
 
         pub fn ones(allocator: std.mem.Allocator, shape: []const u64, requires_grad: bool) !Self {
             var t = try init(allocator, shape, requires_grad);
             const n = numel(&t.shape, t.ndim);
-            const buf = try allocator.alloc(T, n);
-            @memset(buf, 0);
-            t.data = buf;
-
-            var c_t = t.toCTensor();
-            c_api.ones_cpu(&c_t, n);
-
+            t.data = try allocator.alloc(T, n);
+            @memset(t.data.?, 1);
             return t;
         }
 
@@ -88,20 +77,6 @@ pub fn Tensor(comptime T: type) type {
 
         pub fn asSlice(self: *const Self) []const T {
             return self.data.?[0..numel(&self.shape, self.ndim)];
-        }
-
-        fn toCTensor(self: *const Self) c_api.C_Tensor {
-            return c_api.toCTensor(
-                if (self.data) |d| @ptrCast(d.ptr) else null,
-                &self.shape,
-                &self.strides,
-                self.ndim,
-                self.requires_grad,
-            );
-        }
-
-        fn toCTensorPtr(self: *const Self) c_api.C_Tensor {
-            return self.toCTensor();
         }
 
         fn isContiguous(self: *const Self) bool {
