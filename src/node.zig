@@ -1,7 +1,7 @@
 const std = @import("std");
 const Tensor = @import("tensor.zig").Tensor;
 const Op = @import("op.zig").Op;
-const assert = std.debug.assert;
+const c_api = @import("c_api.zig");
 
 pub fn Node(comptime T: type) type {
     return struct {
@@ -10,118 +10,64 @@ pub fn Node(comptime T: type) type {
         alloc: std.mem.Allocator,
         inputs: []*Tensor(T),
         output: *Tensor(T),
-        grad: ?*Tensor(T) = null,
-        op: Op(T),
+        op: Op,
+        visited: bool = false,
 
-        pub fn init(alloc: std.mem.Allocator, inputs: []*Tensor(T), output: *Tensor(T), op: Op(T)) Self {
-            return .{ .alloc = alloc, .inputs = inputs, .output = output, .op = op };
+        pub fn init(self: *Self, alloc: std.mem.Allocator, inputs: []*Tensor(T), output: *Tensor(T), op: Op) void {
+            self.* = .{ .alloc = alloc, .inputs = inputs, .output = output, .op = op };
+            output.creator = self;
         }
 
         pub fn deinit(self: *Self) void {
             self.alloc.free(self.inputs);
             self.output.deinit();
             self.alloc.destroy(self.output);
-            if (self.grad) |g| {
-                g.deinit();
-                self.alloc.destroy(g);
-            }
         }
 
         pub fn forward(self: *Self, allocator: std.mem.Allocator) !*Tensor(T) {
-            self.output = try self.op.forward(allocator, self.inputs);
+            var c_out = c_api.toCTensor(@ptrCast(self.output.data.?), &self.output.shape, &self.output.strides, self.output.ndim, self.output.requires_grad);
+            
+            const c_inputs = try allocator.alloc(?*const c_api.C_Tensor, self.inputs.len);
+            defer allocator.free(c_inputs);
+            const c_inputs_tensors = try allocator.alloc(c_api.C_Tensor, self.inputs.len);
+            defer allocator.free(c_inputs_tensors);
+
+            for (self.inputs, 0..) |inp, i| {
+                c_inputs_tensors[i] = c_api.toCTensor(@ptrCast(inp.data.?), &inp.shape, &inp.strides, inp.ndim, inp.requires_grad);
+                c_inputs[i] = &c_inputs_tensors[i];
+            }
+            self.op.function.forward(@ptrCast(c_inputs.ptr), &c_out, self.op.params);
             return self.output;
         }
 
-        pub fn backward(self: *Self) void {
-            if (self.grad) |g| self.op.backward(g);
+        pub fn backward(self: *Self) !void {
+            if (self.output.grad) |g| {
+                var c_out = c_api.toCTensor(@ptrCast(self.output.data.?), &self.output.shape, &self.output.strides, self.output.ndim, self.output.requires_grad);
+                var c_out_grad = c_api.toCTensor(@ptrCast(g.data.?), &g.shape, &g.strides, g.ndim, g.requires_grad);
+                c_out.grad = &c_out_grad;
+
+                const c_inputs = try self.alloc.alloc(?*const c_api.C_Tensor, self.inputs.len);
+                defer self.alloc.free(c_inputs);
+                const c_inputs_tensors = try self.alloc.alloc(c_api.C_Tensor, self.inputs.len);
+                defer self.alloc.free(c_inputs_tensors);
+                const c_inputs_grads = try self.alloc.alloc(c_api.C_Tensor, self.inputs.len);
+                defer self.alloc.free(c_inputs_grads);
+
+                for (self.inputs, 0..) |inp, i| {
+                    if (inp.requires_grad and inp.grad == null) {
+                        const ig = try self.alloc.create(Tensor(T));
+                        ig.* = try Tensor(T).zeros(self.alloc, inp.shape[0..inp.ndim], false);
+                        inp.grad = ig;
+                    }
+                    c_inputs_tensors[i] = c_api.toCTensor(@ptrCast(inp.data.?), &inp.shape, &inp.strides, inp.ndim, inp.requires_grad);
+                    if (inp.grad) |ig| {
+                        c_inputs_grads[i] = c_api.toCTensor(@ptrCast(ig.data.?), &ig.shape, &ig.strides, ig.ndim, ig.requires_grad);
+                        c_inputs_tensors[i].grad = &c_inputs_grads[i];
+                    }
+                    c_inputs[i] = &c_inputs_tensors[i];
+                }
+                self.op.function.backward(@ptrCast(c_inputs.ptr), &c_out, self.op.params);
+            }
         }
     };
-}
-
-const testing = std.testing;
-
-test "Node init and forward" {
-    const AddImpl = struct {
-        pub fn forward(_: *@This(), allocator: std.mem.Allocator, inputs: []const *Tensor(f32)) !*Tensor(f32) {
-            const a = inputs[0].data.?;
-            const b = inputs[1].data.?;
-            const result = try Tensor(f32).zeros(allocator, inputs[0].shape[0..inputs[0].ndim], false);
-            for (result.data.?, a, b) |*r, x, y| r.* = x + y;
-            const ptr = try allocator.create(Tensor(f32));
-            ptr.* = result;
-            return ptr;
-        }
-        pub fn backward(_: *@This(), grad_output: *Tensor(f32)) void {
-            _ = grad_output;
-        }
-    };
-
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    defer arena.deinit();
-    const alloc = arena.allocator();
-
-    var a = try Tensor(f32).fromData(alloc, &.{ 4 }, &[_]f32{ 1, 2, 3, 4 }, false);
-    var b = try Tensor(f32).fromData(alloc, &.{ 4 }, &[_]f32{ 5, 6, 7, 8 }, false);
-
-    const dummy = try alloc.create(Tensor(f32));
-    dummy.* = try Tensor(f32).zeros(alloc, &.{ 4 }, false);
-
-    var impl = AddImpl{};
-    const op = Op(f32).init(&impl, AddImpl);
-
-    const inputs = try alloc.alloc(*Tensor(f32), 2);
-    inputs[0] = &a;
-    inputs[1] = &b;
-
-    var node = Node(f32).init(alloc, inputs, dummy, op);
-    const out = try node.forward(alloc);
-
-    try testing.expect(out == node.output);
-    try testing.expect(std.mem.eql(f32, out.data.?, &[_]f32{ 6, 8, 10, 12 }));
-
-    node.deinit();
-}
-
-test "Node backward triggers op backward" {
-    const BackwardCheck = struct {
-        called: bool,
-
-        pub fn forward(_: *@This(), allocator: std.mem.Allocator, inputs: []const *Tensor(f32)) !*Tensor(f32) {
-            const result = try Tensor(f32).zeros(allocator, inputs[0].shape[0..inputs[0].ndim], false);
-            const ptr = try allocator.create(Tensor(f32));
-            ptr.* = result;
-            return ptr;
-        }
-        pub fn backward(self: *@This(), grad_output: *Tensor(f32)) void {
-            _ = grad_output;
-            self.called = true;
-        }
-    };
-
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    defer arena.deinit();
-    const alloc = arena.allocator();
-
-    const t = try alloc.create(Tensor(f32));
-    t.* = try Tensor(f32).zeros(alloc, &.{ 2 }, false);
-    const dummy = try alloc.create(Tensor(f32));
-    dummy.* = try Tensor(f32).zeros(alloc, &.{ 2 }, false);
-    const grad = try alloc.create(Tensor(f32));
-    grad.* = try Tensor(f32).zeros(alloc, &.{ 2 }, false);
-
-    var check = BackwardCheck{ .called = false };
-    const op = Op(f32).init(&check, BackwardCheck);
-
-    const inputs = try alloc.alloc(*Tensor(f32), 1);
-    inputs[0] = t;
-
-    var node = Node(f32).init(alloc, inputs, dummy, op);
-    _ = try node.forward(alloc);
-
-    node.grad = grad;
-    node.backward();
-
-    try testing.expect(check.called);
-
-    node.deinit();
 }

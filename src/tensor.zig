@@ -1,5 +1,7 @@
 const std = @import("std");
 const assert = std.debug.assert;
+const Node = @import("node.zig").Node;
+const Graph = @import("graph.zig").Graph;
 
 pub const MAX_NDIM = 8;
 pub const Device = enum(u32) {
@@ -17,6 +19,7 @@ pub fn Tensor(comptime T: type) type {
         strides: [MAX_NDIM]u64,
         data: ?[]T = null,
         grad: ?*Self = null,
+        creator: ?*Node(T) = null,
         device: Device = .CPU,
         requires_grad: bool = false,
 
@@ -73,6 +76,28 @@ pub fn Tensor(comptime T: type) type {
                 g.deinit();
                 self.alloc.destroy(g);
             }
+        }
+
+        pub fn realize(self: *Self) void {
+            const creator = self.creator orelse return;
+            var graph = Graph(T).init(self.alloc);
+            defer graph.deinit();
+            graph.dag(creator);
+            graph.forward();
+        }
+
+        pub fn backward(self: *Self) void {
+            const creator = self.creator orelse return;
+            self.realize();
+            const grad = self.alloc.create(Tensor(T)) catch return;
+            grad.* = Tensor(T).ones(self.alloc, self.shape[0..self.ndim], false) catch return;
+            self.grad = grad;
+            var graph = Graph(T).init(self.alloc);
+            defer graph.deinit();
+            graph.dag(creator);
+            graph.backward() catch |err| {
+                std.debug.print("Error during backward: {any}\n", .{err});
+            };
         }
 
         pub fn asSlice(self: *const Self) []const T {

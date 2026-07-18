@@ -11,6 +11,8 @@ fn addCSources(mod: *std.Build.Module, b: *std.Build, cflags: []const []const u8
     mod.addCSourceFile(.{ .file = b.path("src/kernels/cpu/unary_ops.c"), .flags = cflags });
     mod.addCSourceFile(.{ .file = b.path("src/kernels/cpu/pack.c"), .flags = cflags });
     mod.addCSourceFile(.{ .file = b.path("src/kernels/cpu/matmul.c"), .flags = cflags });
+    mod.addCSourceFile(.{ .file = b.path("src/kernels/cpu/reduce_ops.c"), .flags = cflags });
+    mod.addCSourceFile(.{ .file = b.path("src/kernels/cpu/shape_ops.c"), .flags = cflags });
     mod.linkSystemLibrary("c", .{});
     mod.linkSystemLibrary("m", .{});
     mod.linkSystemLibrary("omp", .{});

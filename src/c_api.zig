@@ -46,19 +46,37 @@ pub extern fn zeros_cpu(t: *C_Tensor, num_elements: u64) void;
 pub extern fn ones_cpu(t: *C_Tensor, num_elements: u64) void;
 
 pub extern fn add_cpu_forward(inputs: [*c]?*const C_Tensor, output: *C_Tensor, params: KernelParams) void;
+pub extern fn add_cpu_backward(inputs: [*c]?*const C_Tensor, output: *const C_Tensor, params: KernelParams) void;
 pub extern fn sub_cpu_forward(inputs: [*c]?*const C_Tensor, output: *C_Tensor, params: KernelParams) void;
+pub extern fn sub_cpu_backward(inputs: [*c]?*const C_Tensor, output: *const C_Tensor, params: KernelParams) void;
 pub extern fn mul_cpu_forward(inputs: [*c]?*const C_Tensor, output: *C_Tensor, params: KernelParams) void;
+pub extern fn mul_cpu_backward(inputs: [*c]?*const C_Tensor, output: *const C_Tensor, params: KernelParams) void;
 pub extern fn div_cpu_forward(inputs: [*c]?*const C_Tensor, output: *C_Tensor, params: KernelParams) void;
+pub extern fn div_cpu_backward(inputs: [*c]?*const C_Tensor, output: *const C_Tensor, params: KernelParams) void;
 
 pub extern fn neg_cpu_forward(inputs: [*c]?*const C_Tensor, output: *C_Tensor, params: KernelParams) void;
+pub extern fn neg_cpu_backward(inputs: [*c]?*const C_Tensor, output: *const C_Tensor, params: KernelParams) void;
 pub extern fn exp_cpu_forward(inputs: [*c]?*const C_Tensor, output: *C_Tensor, params: KernelParams) void;
+pub extern fn exp_cpu_backward(inputs: [*c]?*const C_Tensor, output: *const C_Tensor, params: KernelParams) void;
 pub extern fn log_cpu_forward(inputs: [*c]?*const C_Tensor, output: *C_Tensor, params: KernelParams) void;
+pub extern fn log_cpu_backward(inputs: [*c]?*const C_Tensor, output: *const C_Tensor, params: KernelParams) void;
 pub extern fn leaky_relu_cpu_forward(inputs: [*c]?*const C_Tensor, output: *C_Tensor, params: KernelParams) void;
+pub extern fn leaky_relu_cpu_backward(inputs: [*c]?*const C_Tensor, output: *const C_Tensor, params: KernelParams) void;
 pub extern fn sin_cpu_forward(inputs: [*c]?*const C_Tensor, output: *C_Tensor, params: KernelParams) void;
+pub extern fn sin_cpu_backward(inputs: [*c]?*const C_Tensor, output: *const C_Tensor, params: KernelParams) void;
 pub extern fn cos_cpu_forward(inputs: [*c]?*const C_Tensor, output: *C_Tensor, params: KernelParams) void;
+pub extern fn cos_cpu_backward(inputs: [*c]?*const C_Tensor, output: *const C_Tensor, params: KernelParams) void;
 pub extern fn abs_cpu_forward(inputs: [*c]?*const C_Tensor, output: *C_Tensor, params: KernelParams) void;
+pub extern fn abs_cpu_backward(inputs: [*c]?*const C_Tensor, output: *const C_Tensor, params: KernelParams) void;
 
 pub extern fn matmul_cpu_forward(inputs: [*c]?*const C_Tensor, output: *C_Tensor, params: KernelParams) void;
+pub extern fn matmul_cpu_backward(inputs: [*c]?*const C_Tensor, output: *const C_Tensor, params: KernelParams) void;
 
 pub extern fn sum_cpu_forward(inputs: [*c]?*const C_Tensor, output: *C_Tensor, params: KernelParams) void;
+pub extern fn sum_cpu_backward(inputs: [*c]?*const C_Tensor, output: *const C_Tensor, params: KernelParams) void;
 pub extern fn mean_cpu_forward(inputs: [*c]?*const C_Tensor, output: *C_Tensor, params: KernelParams) void;
+pub extern fn mean_cpu_backward(inputs: [*c]?*const C_Tensor, output: *const C_Tensor, params: KernelParams) void;
+pub extern fn max_cpu_forward(inputs: [*c]?*const C_Tensor, output: *C_Tensor, params: KernelParams) void;
+pub extern fn max_cpu_backward(inputs: [*c]?*const C_Tensor, output: *const C_Tensor, params: KernelParams) void;
+pub extern fn min_cpu_forward(inputs: [*c]?*const C_Tensor, output: *C_Tensor, params: KernelParams) void;
+pub extern fn min_cpu_backward(inputs: [*c]?*const C_Tensor, output: *const C_Tensor, params: KernelParams) void;
