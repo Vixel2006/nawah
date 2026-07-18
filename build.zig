@@ -5,6 +5,7 @@ fn addCSources(mod: *std.Build.Module, b: *std.Build, cflags: []const []const u8
     mod.addCSourceFile(.{ .file = b.path("src/core/tensor.c"), .flags = cflags });
     mod.addCSourceFile(.{ .file = b.path("src/core/arena.c"), .flags = cflags });
     mod.addCSourceFile(.{ .file = b.path("src/core/arena_cpu.c"), .flags = cflags });
+    mod.addCSourceFile(.{ .file = b.path("src/core/op.c"), .flags = cflags });
     mod.addCSourceFile(.{ .file = b.path("src/kernels/cpu/cpu_tensor_init.c"), .flags = cflags });
     mod.addCSourceFile(.{ .file = b.path("src/kernels/cpu/cpu_utils.c"), .flags = cflags });
     mod.addCSourceFile(.{ .file = b.path("src/kernels/cpu/binary_ops.c"), .flags = cflags });
@@ -13,6 +14,8 @@ fn addCSources(mod: *std.Build.Module, b: *std.Build, cflags: []const []const u8
     mod.addCSourceFile(.{ .file = b.path("src/kernels/cpu/matmul.c"), .flags = cflags });
     mod.addCSourceFile(.{ .file = b.path("src/kernels/cpu/reduce_ops.c"), .flags = cflags });
     mod.addCSourceFile(.{ .file = b.path("src/kernels/cpu/shape_ops.c"), .flags = cflags });
+    mod.addCSourceFile(.{ .file = b.path("src/kernels/cpu/conv2d.c"), .flags = cflags });
+    mod.addCSourceFile(.{ .file = b.path("src/kernels/cpu/fused_ops.c"), .flags = cflags });
     mod.linkSystemLibrary("c", .{});
     mod.linkSystemLibrary("m", .{});
     mod.linkSystemLibrary("omp", .{});
