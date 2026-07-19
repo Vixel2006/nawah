@@ -6,3 +6,4 @@ pub const dropout = @import("dropout.zig");
 pub const flatten = @import("flatten.zig");
 pub const batchnorm = @import("batchnorm.zig");
 pub const rnn = @import("rnn.zig");
+pub const loss = @import("loss.zig");

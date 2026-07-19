@@ -27,8 +27,22 @@ pub fn build(b: *std.Build) void {
     const exe_mod = b.createModule(.{
         .root_source_file = b.path("src/root.zig"),
         .target = b.graph.host,
+        .link_libc = true,
     });
     addCSources(exe_mod, b, cflags);
+
+    const cuda_bindings = b.addTranslateC(.{
+        .root_source_file = b.path("../../../../opt/cuda/include/cuda.h"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+    });
+
+    cuda_bindings.addIncludePath(b.path("../../../../opt/cuda/include"));
+    cuda_bindings.defineCMacroRaw("__NV_NO_VECTOR_DEPRECATION_DIAG");
+    cuda_bindings.linkSystemLibrary("cuda", .{});
+
+    const cuda_module = cuda_bindings.createModule();
+    exe_mod.addImport("cuda", cuda_module);
 
     const exe = b.addExecutable(.{
         .name = "tensor",
@@ -47,6 +61,7 @@ pub fn build(b: *std.Build) void {
         .target = b.graph.host,
     });
     addCSources(test_mod, b, cflags);
+    test_mod.addImport("cuda", cuda_module);
 
     const unit_tests = b.addTest(.{
         .root_module = test_mod,

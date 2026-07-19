@@ -55,7 +55,7 @@ pub fn mul(comptime T: type, lhs: *Tensor(T), rhs: *Tensor(T)) !*Tensor(T) {
 
 pub fn div(comptime T: type, lhs: *Tensor(T), rhs: *Tensor(T)) !*Tensor(T) {
     const alloc = lhs.alloc;
-    const shape = lhs.shape[0..rhs.ndim];
+    const shape = lhs.shape[0..lhs.ndim];
     const ins = try alloc.alloc(*Tensor(T), 2);
     ins[0] = lhs;
     ins[1] = rhs;

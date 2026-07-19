@@ -9,7 +9,9 @@ pub const functions = @import("ops/functions.zig");
 pub const fusion = @import("scheduler/fusion.zig");
 pub const scheduler = @import("scheduler/scheduler.zig");
 pub const optimizer = @import("optimizer/mod.zig");
+pub const optimizers = @import("optimizers/mod.zig");
 pub const nn = @import("nn/mod.zig");
+pub const cudaAlloc = @import("cuda_alloc.zig");
 
 test {
     _ = @import("tensor.zig");
@@ -21,7 +23,9 @@ test {
     _ = @import("scheduler/scheduler.zig");
     _ = @import("scheduler/jit.zig");
     _ = @import("optimizer/mod.zig");
+    _ = @import("optimizers/mod.zig");
     _ = @import("nn/mod.zig");
+    _ = @import("cuda_alloc.zig");
 }
 
 fn Net(comptime T: type) type {
@@ -95,21 +99,21 @@ pub fn main() !void {
     var sched = scheduler.Scheduler(T).init(alloc, .{ .jit = &jit });
     sched.setJitMode(use_jit);
 
-    var optim = optimizer.Optimizer(T).init(alloc, .{ .lr = lr });
+    var optim = optimizers.Adam(T).init(alloc, .{ .lr = lr });
     defer optim.deinit();
     try optim.addParams(params);
+
+    var loss_fn = nn.loss.MSELoss(T).init(.mean);
 
     var epoch: u64 = 0;
     while (epoch < epochs) : (epoch += 1) {
         optim.zeroGrad();
 
         const pred = try net.call(&x);
-        const diff = try functions.sub(T, pred, &y);
-        const sq = try functions.mul(T, diff, diff);
-        const loss = try functions.mean(T, sq, null, false);
+        const loss = try loss_fn.call(pred, &y);
 
         sched.backward(loss);
-        optim.step();
+        try optim.step();
 
         if (epoch < 10 or epoch % 5000 == 0) {
             std.debug.print("epoch {d}: loss = {d:.6}  (jit={})\n", .{ epoch, loss.data.?[0], use_jit });
