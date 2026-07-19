@@ -26,95 +26,107 @@ fn createNode(comptime T: type, allocator: std.mem.Allocator, op_type: OpType, i
     return out;
 }
 
-pub fn add(comptime T: type, allocator: std.mem.Allocator, lhs: *Tensor(T), rhs: *Tensor(T)) !*Tensor(T) {
+pub fn add(comptime T: type, lhs: *Tensor(T), rhs: *Tensor(T)) !*Tensor(T) {
+    const alloc = lhs.alloc;
     const shape = lhs.shape[0..lhs.ndim];
-    const ins = try allocator.alloc(*Tensor(T), 2);
+    const ins = try alloc.alloc(*Tensor(T), 2);
     ins[0] = lhs;
     ins[1] = rhs;
-    return createNode(T, allocator, .{ .element_wise = .add }, ins, shape);
+    return createNode(T, alloc, .{ .element_wise = .add }, ins, shape);
 }
 
-pub fn sub(comptime T: type, allocator: std.mem.Allocator, lhs: *Tensor(T), rhs: *Tensor(T)) !*Tensor(T) {
+pub fn sub(comptime T: type, lhs: *Tensor(T), rhs: *Tensor(T)) !*Tensor(T) {
+    const alloc = lhs.alloc;
     const shape = lhs.shape[0..lhs.ndim];
-    const ins = try allocator.alloc(*Tensor(T), 2);
+    const ins = try alloc.alloc(*Tensor(T), 2);
     ins[0] = lhs;
     ins[1] = rhs;
-    return createNode(T, allocator, .{ .element_wise = .sub }, ins, shape);
+    return createNode(T, alloc, .{ .element_wise = .sub }, ins, shape);
 }
 
-pub fn mul(comptime T: type, allocator: std.mem.Allocator, lhs: *Tensor(T), rhs: *Tensor(T)) !*Tensor(T) {
+pub fn mul(comptime T: type, lhs: *Tensor(T), rhs: *Tensor(T)) !*Tensor(T) {
+    const alloc = lhs.alloc;
     const shape = lhs.shape[0..lhs.ndim];
-    const ins = try allocator.alloc(*Tensor(T), 2);
+    const ins = try alloc.alloc(*Tensor(T), 2);
     ins[0] = lhs;
     ins[1] = rhs;
-    return createNode(T, allocator, .{ .element_wise = .mul }, ins, shape);
+    return createNode(T, alloc, .{ .element_wise = .mul }, ins, shape);
 }
 
-pub fn div(comptime T: type, allocator: std.mem.Allocator, lhs: *Tensor(T), rhs: *Tensor(T)) !*Tensor(T) {
+pub fn div(comptime T: type, lhs: *Tensor(T), rhs: *Tensor(T)) !*Tensor(T) {
+    const alloc = lhs.alloc;
     const shape = lhs.shape[0..rhs.ndim];
-    const ins = try allocator.alloc(*Tensor(T), 2);
+    const ins = try alloc.alloc(*Tensor(T), 2);
     ins[0] = lhs;
     ins[1] = rhs;
-    return createNode(T, allocator, .{ .element_wise = .div }, ins, shape);
+    return createNode(T, alloc, .{ .element_wise = .div }, ins, shape);
 }
 
-pub fn relu(comptime T: type, allocator: std.mem.Allocator, x: *Tensor(T)) !*Tensor(T) {
+pub fn relu(comptime T: type, x: *Tensor(T)) !*Tensor(T) {
+    const alloc = x.alloc;
     const shape = x.shape[0..x.ndim];
-    const ins = try allocator.alloc(*Tensor(T), 1);
+    const ins = try alloc.alloc(*Tensor(T), 1);
     ins[0] = x;
-    return createNode(T, allocator, .{ .element_wise = .relu }, ins, shape);
+    return createNode(T, alloc, .{ .element_wise = .relu }, ins, shape);
 }
 
-pub fn exp(comptime T: type, allocator: std.mem.Allocator, x: *Tensor(T)) !*Tensor(T) {
+pub fn exp(comptime T: type, x: *Tensor(T)) !*Tensor(T) {
+    const alloc = x.alloc;
     const shape = x.shape[0..x.ndim];
-    const ins = try allocator.alloc(*Tensor(T), 1);
+    const ins = try alloc.alloc(*Tensor(T), 1);
     ins[0] = x;
-    return createNode(T, allocator, .{ .element_wise = .exp }, ins, shape);
+    return createNode(T, alloc, .{ .element_wise = .exp }, ins, shape);
 }
 
-pub fn log(comptime T: type, allocator: std.mem.Allocator, x: *Tensor(T)) !*Tensor(T) {
+pub fn log(comptime T: type, x: *Tensor(T)) !*Tensor(T) {
+    const alloc = x.alloc;
     const shape = x.shape[0..x.ndim];
-    const ins = try allocator.alloc(*Tensor(T), 1);
+    const ins = try alloc.alloc(*Tensor(T), 1);
     ins[0] = x;
-    return createNode(T, allocator, .{ .element_wise = .log }, ins, shape);
+    return createNode(T, alloc, .{ .element_wise = .log }, ins, shape);
 }
 
-pub fn sin(comptime T: type, allocator: std.mem.Allocator, x: *Tensor(T)) !*Tensor(T) {
+pub fn sin(comptime T: type, x: *Tensor(T)) !*Tensor(T) {
+    const alloc = x.alloc;
     const shape = x.shape[0..x.ndim];
-    const ins = try allocator.alloc(*Tensor(T), 1);
+    const ins = try alloc.alloc(*Tensor(T), 1);
     ins[0] = x;
-    return createNode(T, allocator, .{ .element_wise = .sin }, ins, shape);
+    return createNode(T, alloc, .{ .element_wise = .sin }, ins, shape);
 }
 
-pub fn cos(comptime T: type, allocator: std.mem.Allocator, x: *Tensor(T)) !*Tensor(T) {
+pub fn cos(comptime T: type, x: *Tensor(T)) !*Tensor(T) {
+    const alloc = x.alloc;
     const shape = x.shape[0..x.ndim];
-    const ins = try allocator.alloc(*Tensor(T), 1);
+    const ins = try alloc.alloc(*Tensor(T), 1);
     ins[0] = x;
-    return createNode(T, allocator, .{ .element_wise = .cos }, ins, shape);
+    return createNode(T, alloc, .{ .element_wise = .cos }, ins, shape);
 }
 
-pub fn abs(comptime T: type, allocator: std.mem.Allocator, x: *Tensor(T)) !*Tensor(T) {
+pub fn abs(comptime T: type, x: *Tensor(T)) !*Tensor(T) {
+    const alloc = x.alloc;
     const shape = x.shape[0..x.ndim];
-    const ins = try allocator.alloc(*Tensor(T), 1);
+    const ins = try alloc.alloc(*Tensor(T), 1);
     ins[0] = x;
-    return createNode(T, allocator, .{ .element_wise = .abs }, ins, shape);
+    return createNode(T, alloc, .{ .element_wise = .abs }, ins, shape);
 }
 
-pub fn neg(comptime T: type, allocator: std.mem.Allocator, x: *Tensor(T)) !*Tensor(T) {
+pub fn neg(comptime T: type, x: *Tensor(T)) !*Tensor(T) {
+    const alloc = x.alloc;
     const shape = x.shape[0..x.ndim];
-    const ins = try allocator.alloc(*Tensor(T), 1);
+    const ins = try alloc.alloc(*Tensor(T), 1);
     ins[0] = x;
-    return createNode(T, allocator, .{ .element_wise = .neg }, ins, shape);
+    return createNode(T, alloc, .{ .element_wise = .neg }, ins, shape);
 }
 
-pub fn matmul(comptime T: type, allocator: std.mem.Allocator, lhs: *Tensor(T), rhs: *Tensor(T)) !*Tensor(T) {
+pub fn matmul(comptime T: type, lhs: *Tensor(T), rhs: *Tensor(T)) !*Tensor(T) {
+    const alloc = lhs.alloc;
     const m = lhs.shape[0];
     const n = rhs.shape[1];
     const shape = [_]u64{ m, n };
-    const ins = try allocator.alloc(*Tensor(T), 2);
+    const ins = try alloc.alloc(*Tensor(T), 2);
     ins[0] = lhs;
     ins[1] = rhs;
-    return createNode(T, allocator, .{ .linear = .matmul }, ins, shape[0..]);
+    return createNode(T, alloc, .{ .linear = .matmul }, ins, shape[0..]);
 }
 
 fn computeReductionShape(allocator: std.mem.Allocator, shape: []const u64, dim: ?u64, keepdim: bool) ![]u64 {
@@ -146,9 +158,10 @@ fn computeReductionShape(allocator: std.mem.Allocator, shape: []const u64, dim: 
     }
 }
 
-pub fn sum(comptime T: type, allocator: std.mem.Allocator, x: *Tensor(T), dim: ?u64, keepdim: bool) !*Tensor(T) {
-    const out_shape = try computeReductionShape(allocator, x.shape[0..x.ndim], dim, keepdim);
-    defer allocator.free(out_shape);
+pub fn sum(comptime T: type, x: *Tensor(T), dim: ?u64, keepdim: bool) !*Tensor(T) {
+    const alloc = x.alloc;
+    const out_shape = try computeReductionShape(alloc, x.shape[0..x.ndim], dim, keepdim);
+    defer alloc.free(out_shape);
 
     const func = getFunction(.{ .reduce = .sum }, 1, 0);
     const op = Op{
@@ -161,19 +174,20 @@ pub fn sum(comptime T: type, allocator: std.mem.Allocator, x: *Tensor(T), dim: ?
         .function = func,
     };
 
-    const out = try allocator.create(Tensor(T));
-    out.* = try Tensor(T).zeros(allocator, out_shape, false);
+    const out = try alloc.create(Tensor(T));
+    out.* = try Tensor(T).zeros(alloc, out_shape, false);
 
-    var node = try allocator.create(Node(T));
-    const ins = try allocator.alloc(*Tensor(T), 1);
+    var node = try alloc.create(Node(T));
+    const ins = try alloc.alloc(*Tensor(T), 1);
     ins[0] = x;
-    node.init(allocator, ins, out, op);
+    node.init(alloc, ins, out, op);
     return out;
 }
 
-pub fn mean(comptime T: type, allocator: std.mem.Allocator, x: *Tensor(T), dim: ?u64, keepdim: bool) !*Tensor(T) {
-    const out_shape = try computeReductionShape(allocator, x.shape[0..x.ndim], dim, keepdim);
-    defer allocator.free(out_shape);
+pub fn mean(comptime T: type, x: *Tensor(T), dim: ?u64, keepdim: bool) !*Tensor(T) {
+    const alloc = x.alloc;
+    const out_shape = try computeReductionShape(alloc, x.shape[0..x.ndim], dim, keepdim);
+    defer alloc.free(out_shape);
 
     const func = getFunction(.{ .reduce = .mean }, 1, 0);
     const op = Op{
@@ -186,19 +200,20 @@ pub fn mean(comptime T: type, allocator: std.mem.Allocator, x: *Tensor(T), dim: 
         .function = func,
     };
 
-    const out = try allocator.create(Tensor(T));
-    out.* = try Tensor(T).zeros(allocator, out_shape, false);
+    const out = try alloc.create(Tensor(T));
+    out.* = try Tensor(T).zeros(alloc, out_shape, false);
 
-    var node = try allocator.create(Node(T));
-    const ins = try allocator.alloc(*Tensor(T), 1);
+    var node = try alloc.create(Node(T));
+    const ins = try alloc.alloc(*Tensor(T), 1);
     ins[0] = x;
-    node.init(allocator, ins, out, op);
+    node.init(alloc, ins, out, op);
     return out;
 }
 
-pub fn max(comptime T: type, allocator: std.mem.Allocator, x: *Tensor(T), dim: ?u64, keepdim: bool) !*Tensor(T) {
-    const out_shape = try computeReductionShape(allocator, x.shape[0..x.ndim], dim, keepdim);
-    defer allocator.free(out_shape);
+pub fn max(comptime T: type, x: *Tensor(T), dim: ?u64, keepdim: bool) !*Tensor(T) {
+    const alloc = x.alloc;
+    const out_shape = try computeReductionShape(alloc, x.shape[0..x.ndim], dim, keepdim);
+    defer alloc.free(out_shape);
 
     const func = getFunction(.{ .reduce = .max }, 1, 0);
     const op = Op{
@@ -211,19 +226,20 @@ pub fn max(comptime T: type, allocator: std.mem.Allocator, x: *Tensor(T), dim: ?
         .function = func,
     };
 
-    const out = try allocator.create(Tensor(T));
-    out.* = try Tensor(T).zeros(allocator, out_shape, false);
+    const out = try alloc.create(Tensor(T));
+    out.* = try Tensor(T).zeros(alloc, out_shape, false);
 
-    var node = try allocator.create(Node(T));
-    const ins = try allocator.alloc(*Tensor(T), 1);
+    var node = try alloc.create(Node(T));
+    const ins = try alloc.alloc(*Tensor(T), 1);
     ins[0] = x;
-    node.init(allocator, ins, out, op);
+    node.init(alloc, ins, out, op);
     return out;
 }
 
-pub fn min(comptime T: type, allocator: std.mem.Allocator, x: *Tensor(T), dim: ?u64, keepdim: bool) !*Tensor(T) {
-    const out_shape = try computeReductionShape(allocator, x.shape[0..x.ndim], dim, keepdim);
-    defer allocator.free(out_shape);
+pub fn min(comptime T: type, x: *Tensor(T), dim: ?u64, keepdim: bool) !*Tensor(T) {
+    const alloc = x.alloc;
+    const out_shape = try computeReductionShape(alloc, x.shape[0..x.ndim], dim, keepdim);
+    defer alloc.free(out_shape);
 
     const func = getFunction(.{ .reduce = .min }, 1, 0);
     const op = Op{
@@ -236,12 +252,12 @@ pub fn min(comptime T: type, allocator: std.mem.Allocator, x: *Tensor(T), dim: ?
         .function = func,
     };
 
-    const out = try allocator.create(Tensor(T));
-    out.* = try Tensor(T).zeros(allocator, out_shape, false);
+    const out = try alloc.create(Tensor(T));
+    out.* = try Tensor(T).zeros(alloc, out_shape, false);
 
-    var node = try allocator.create(Node(T));
-    const ins = try allocator.alloc(*Tensor(T), 1);
+    var node = try alloc.create(Node(T));
+    const ins = try alloc.alloc(*Tensor(T), 1);
     ins[0] = x;
-    node.init(allocator, ins, out, op);
+    node.init(alloc, ins, out, op);
     return out;
 }

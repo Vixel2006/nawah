@@ -11,7 +11,8 @@ pub fn Dropout(comptime T: type) type {
             return .{ .p = p, .rng = rng };
         }
 
-        pub fn forward(self: *@This(), x: *Tensor(T), alloc: std.mem.Allocator) !*Tensor(T) {
+        pub fn call(self: *@This(), x: *Tensor(T)) !*Tensor(T) {
+            const alloc = x.alloc;
             const scale = 1.0 / (1.0 - self.p);
             var numel: u64 = 1;
             for (x.shape[0..x.ndim]) |dim| numel *= dim;
@@ -22,7 +23,7 @@ pub fn Dropout(comptime T: type) type {
             }
             const mask_t = try alloc.create(Tensor(T));
             mask_t.* = mask;
-            return functions.mul(T, alloc, x, mask_t);
+            return functions.mul(T, x, mask_t);
         }
 
         pub fn parameters(_: *@This(), _: std.mem.Allocator) ![]*Tensor(T) {

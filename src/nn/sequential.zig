@@ -7,7 +7,7 @@ pub fn Sequential(comptime T: type) type {
 
         const VTable = struct {
             ctx: *anyopaque,
-            forwardFn: *const fn (ctx: *anyopaque, x: *Tensor(T), alloc: std.mem.Allocator) anyerror!*Tensor(T),
+            callFn: *const fn (ctx: *anyopaque, x: *Tensor(T)) anyerror!*Tensor(T),
             paramsFn: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator) anyerror![]*Tensor(T),
             deinitFn: *const fn (ctx: *anyopaque) void,
         };
@@ -28,8 +28,8 @@ pub fn Sequential(comptime T: type) type {
 
         pub fn add(self: *Self, comptime LayerType: type, layer: *LayerType) !void {
             const wrapper = struct {
-                fn forward(ctx: *anyopaque, x: *Tensor(T), alloc: std.mem.Allocator) anyerror!*Tensor(T) {
-                    return @as(*LayerType, @ptrCast(@alignCast(ctx))).forward(x, alloc);
+                fn call(ctx: *anyopaque, x: *Tensor(T)) anyerror!*Tensor(T) {
+                    return @as(*LayerType, @ptrCast(@alignCast(ctx))).call(x);
                 }
                 fn params(ctx: *anyopaque, allocator: std.mem.Allocator) anyerror![]*Tensor(T) {
                     return @as(*LayerType, @ptrCast(@alignCast(ctx))).parameters(allocator);
@@ -40,16 +40,16 @@ pub fn Sequential(comptime T: type) type {
             };
             try self.layers.append(self.alloc, .{
                 .ctx = @ptrCast(layer),
-                .forwardFn = wrapper.forward,
+                .callFn = wrapper.call,
                 .paramsFn = wrapper.params,
                 .deinitFn = wrapper.deinit,
             });
         }
 
-        pub fn forward(self: *Self, x: *Tensor(T), allocator: std.mem.Allocator) !*Tensor(T) {
+        pub fn call(self: *Self, x: *Tensor(T)) !*Tensor(T) {
             var out = x;
             for (self.layers.items) |layer| {
-                out = try layer.forwardFn(layer.ctx, out, allocator);
+                out = try layer.callFn(layer.ctx, out);
             }
             return out;
         }
@@ -85,7 +85,7 @@ test "Sequential — single linear layer" {
     try seq.add(Linear(f32), &linear);
 
     var x = try Tensor(f32).ones(alloc, &.{2, 4}, false);
-    const out = try seq.forward(&x, alloc);
+    const out = try seq.call(&x);
     try testing.expect(out.shape[0] == 2);
     try testing.expect(out.shape[1] == 3);
 }

@@ -8,6 +8,7 @@ pub const c_api = @import("c_api.zig");
 pub const functions = @import("ops/functions.zig");
 pub const fusion = @import("scheduler/fusion.zig");
 pub const scheduler = @import("scheduler/scheduler.zig");
+pub const optimizer = @import("optimizer/mod.zig");
 pub const nn = @import("nn/mod.zig");
 
 test {
@@ -19,7 +20,55 @@ test {
     _ = @import("scheduler/fusion.zig");
     _ = @import("scheduler/scheduler.zig");
     _ = @import("scheduler/jit.zig");
+    _ = @import("optimizer/mod.zig");
     _ = @import("nn/mod.zig");
+}
+
+fn Net(comptime T: type) type {
+    return struct {
+        const Self = @This();
+
+        alloc: std.mem.Allocator,
+        l1: nn.linear.Linear(T),
+        sig1: nn.activation.Sigmoid(T),
+        l2: nn.linear.Linear(T),
+        sig2: nn.activation.Sigmoid(T),
+
+        pub fn init(alloc: std.mem.Allocator) !Self {
+            return .{
+                .alloc = alloc,
+                .l1 = try nn.linear.Linear(T).init(alloc, 2, 8, .{ .seed = 42 }),
+                .sig1 = .{},
+                .l2 = try nn.linear.Linear(T).init(alloc, 8, 1, .{ .seed = 123 }),
+                .sig2 = .{},
+            };
+        }
+
+        pub fn deinit(self: *Self) void {
+            self.l2.deinit();
+            self.l1.deinit();
+        }
+
+        pub fn call(self: *Self, x: *tensor.Tensor(T)) !*tensor.Tensor(T) {
+            var out = try self.l1.call(x);
+            out = try self.sig1.call(out);
+            out = try self.l2.call(out);
+            out = try self.sig2.call(out);
+            return out;
+        }
+
+        pub fn parameters(self: *Self, allocator: std.mem.Allocator) ![]*tensor.Tensor(T) {
+            const l1p = try self.l1.parameters(allocator);
+            defer allocator.free(l1p);
+            const l2p = try self.l2.parameters(allocator);
+            defer allocator.free(l2p);
+
+            var params = try allocator.alloc(*tensor.Tensor(T), l1p.len + l2p.len);
+            @memcpy(params[0..l1p.len], l1p);
+            @memcpy(params[l1p.len..], l2p);
+            return params;
+        }
+    };
 }
 
 pub fn main() !void {
@@ -35,85 +84,40 @@ pub fn main() !void {
     var x = try tensor.Tensor(T).fromData(alloc, &.{ 4, 2 }, &[_]T{ 0, 0, 0, 1, 1, 0, 1, 1 }, false);
     var y = try tensor.Tensor(T).fromData(alloc, &.{ 4, 1 }, &[_]T{ 0, 1, 1, 0 }, false);
 
-    var l1 = try nn.linear.Linear(T).init(alloc, 2, 8, .{ .seed = 42 });
-    var sig1 = nn.activation.Sigmoid(T){};
-    var l2 = try nn.linear.Linear(T).init(alloc, 8, 1, .{ .seed = 123 });
-    var sig2 = nn.activation.Sigmoid(T){};
+    var net = try Net(T).init(alloc);
+    defer net.deinit();
 
-    var seq = nn.sequential.Sequential(T).init(alloc);
-    defer seq.deinit();
-    try seq.add(nn.linear.Linear(T), &l1);
-    try seq.add(nn.activation.Sigmoid(T), &sig1);
-    try seq.add(nn.linear.Linear(T), &l2);
-    try seq.add(nn.activation.Sigmoid(T), &sig2);
-
-    const params = try seq.parameters(alloc);
+    const params = try net.parameters(alloc);
     defer alloc.free(params);
 
     var jit = scheduler.JIT(T).init(alloc);
     defer jit.deinit();
-    var sched = scheduler.Scheduler(T).init(alloc, &jit);
+    var sched = scheduler.Scheduler(T).init(alloc, .{ .jit = &jit });
     sched.setJitMode(use_jit);
+
+    var optim = optimizer.Optimizer(T).init(alloc, .{ .lr = lr });
+    defer optim.deinit();
+    try optim.addParams(params);
 
     var epoch: u64 = 0;
     while (epoch < epochs) : (epoch += 1) {
-        const pred = try seq.forward(&x, alloc);
-        const diff = try functions.sub(T, alloc, pred, &y);
-        const sq = try functions.mul(T, alloc, diff, diff);
-        const loss = try functions.mean(T, alloc, sq, null, false);
+        optim.zeroGrad();
 
-        // Build the compute graph once, use for both forward and backward
-        var compute = graph.Graph(T).init(alloc);
-        defer compute.deinit();
-        compute.dag(loss.creator.?);
+        const pred = try net.call(&x);
+        const diff = try functions.sub(T, pred, &y);
+        const sq = try functions.mul(T, diff, diff);
+        const loss = try functions.mean(T, sq, null, false);
 
-        // Forward pass
-        sched.forward(&compute);
-
-        // Seed gradient (same as what Tensor.backward does internally)
-        const grad = try alloc.create(tensor.Tensor(T));
-        grad.* = try tensor.Tensor(T).ones(alloc, loss.shape[0..loss.ndim], false);
-        loss.grad = grad;
-
-        // Backward pass
-        sched.backward(&compute);
+        sched.backward(loss);
+        optim.step();
 
         if (epoch < 10 or epoch % 5000 == 0) {
             std.debug.print("epoch {d}: loss = {d:.6}  (jit={})\n", .{ epoch, loss.data.?[0], use_jit });
         }
-
-        if (epoch < 10 or epoch % 5000 == 0) {
-            for (params, 0..) |p, i| {
-                if (p.grad) |g| {
-                    std.debug.print("  param {d}: val[0] = {d:.4}, grad[0] = {d:.4}\n", .{ i, p.data.?[0], g.data.?[0] });
-                }
-            }
-        }
-
-        for (params) |p| {
-            if (p.grad) |g| {
-                const pd = p.data.?;
-                const gd = g.data.?;
-                for (pd, gd) |*val, grad_val| {
-                    val.* -= lr * grad_val;
-                }
-            }
-        }
-
-        for (params) |p| {
-            if (p.grad) |g| {
-                @memset(g.data.?, 0);
-            }
-        }
     }
 
-    const pred = try seq.forward(&x, alloc);
-    {
-        var compute = graph.Graph(T).init(alloc);
-        defer compute.deinit();
-        compute.dag(pred.creator.?);
-        sched.forward(&compute);
-    }
+    const pred = try net.call(&x);
+    sched.forward(pred);
     std.debug.print("Final predictions:\n", .{});
     for (0..4) |i| {
         const x0 = x.data.?[i * 2];

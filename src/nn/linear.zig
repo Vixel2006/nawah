@@ -61,10 +61,10 @@ pub fn Linear(comptime T: type) type {
             }
         }
 
-        pub fn forward(self: *Self, x: *Tensor(T), allocator: std.mem.Allocator) !*Tensor(T) {
-            var out = try functions.matmul(T, allocator, x, self.weight);
+        pub fn call(self: *Self, x: *Tensor(T)) !*Tensor(T) {
+            var out = try functions.matmul(T, x, self.weight);
             if (self.bias) |b| {
-                out = try functions.add(T, allocator, out, b);
+                out = try functions.add(T, out, b);
             }
             return out;
         }
@@ -102,7 +102,7 @@ test "Linear — init and forward" {
     try testing.expect(linear.bias.?.shape[0] == 3);
 
     var x = try Tensor(f32).ones(alloc, &.{2, 4}, false);
-    const out = try linear.forward(&x, alloc);
+    const out = try linear.call(&x);
     try testing.expect(out.shape[0] == 2);
     try testing.expect(out.shape[1] == 3);
 }

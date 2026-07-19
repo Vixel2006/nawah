@@ -2,12 +2,13 @@ const std = @import("std");
 const Tensor = @import("../tensor.zig").Tensor;
 const functions = @import("../ops/functions.zig");
 
-fn sqrtHelper(comptime T: type, alloc: std.mem.Allocator, x: *Tensor(T)) !*Tensor(T) {
+fn sqrtHelper(comptime T: type, x: *Tensor(T)) !*Tensor(T) {
+    const alloc = x.alloc;
     const half_t = try alloc.create(Tensor(T));
     half_t.* = try Tensor(T).fromData(alloc, &.{1}, &.{0.5}, false);
-    const log_x = try functions.log(T, alloc, x);
-    const half_log = try functions.mul(T, alloc, log_x, half_t);
-    return functions.exp(T, alloc, half_log);
+    const log_x = try functions.log(T, x);
+    const half_log = try functions.mul(T, log_x, half_t);
+    return functions.exp(T, half_log);
 }
 
 pub fn BatchNorm1d(comptime T: type) type {
@@ -44,18 +45,19 @@ pub fn BatchNorm1d(comptime T: type) type {
             };
         }
 
-        pub fn forward(self: *@This(), x: *Tensor(T), alloc: std.mem.Allocator) !*Tensor(T) {
-            const mean = try functions.mean(T, alloc, x, 0, true);
-            const centered = try functions.sub(T, alloc, x, mean);
-            const sq = try functions.mul(T, alloc, centered, centered);
-            const var_t = try functions.mean(T, alloc, sq, 0, true);
+        pub fn call(self: *@This(), x: *Tensor(T)) !*Tensor(T) {
+            const alloc = self.alloc;
+            const mean = try functions.mean(T, x, 0, true);
+            const centered = try functions.sub(T, x, mean);
+            const sq = try functions.mul(T, centered, centered);
+            const var_t = try functions.mean(T, sq, 0, true);
             const eps_ptr = try alloc.create(Tensor(T));
             eps_ptr.* = try Tensor(T).fromData(alloc, &.{1}, &.{@as(T, @floatCast(self.eps))}, false);
-            const var_eps = try functions.add(T, alloc, var_t, eps_ptr);
-            const std_t = try sqrtHelper(T, alloc, var_eps);
-            const normalized = try functions.div(T, alloc, centered, std_t);
-            const scaled = try functions.mul(T, alloc, normalized, self.gamma);
-            return functions.add(T, alloc, scaled, self.beta);
+            const var_eps = try functions.add(T, var_t, eps_ptr);
+            const std_t = try sqrtHelper(T, var_eps);
+            const normalized = try functions.div(T, centered, std_t);
+            const scaled = try functions.mul(T, normalized, self.gamma);
+            return functions.add(T, scaled, self.beta);
         }
 
         pub fn parameters(self: *@This(), _: std.mem.Allocator) ![]*Tensor(T) {

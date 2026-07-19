@@ -11,12 +11,12 @@ pub fn Softmax(comptime T: type) type {
             return .{ .dim = dim, .keepdim = keepdim };
         }
 
-        pub fn forward(_: *@This(), x: *Tensor(T), alloc: std.mem.Allocator) !*Tensor(T) {
-            const max_val = try functions.max(T, alloc, x, null, false);
-            const shifted = try functions.sub(T, alloc, x, max_val);
-            const e = try functions.exp(T, alloc, shifted);
-            const sum = try functions.sum(T, alloc, e, null, false);
-            return functions.div(T, alloc, e, sum);
+        pub fn call(_: *@This(), x: *Tensor(T)) !*Tensor(T) {
+            const max_val = try functions.max(T, x, null, false);
+            const shifted = try functions.sub(T, x, max_val);
+            const e = try functions.exp(T, shifted);
+            const sum = try functions.sum(T, e, null, false);
+            return functions.div(T, e, sum);
         }
 
         pub fn parameters(_: *@This(), _: std.mem.Allocator) ![]*Tensor(T) {

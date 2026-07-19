@@ -40,32 +40,31 @@ pub fn RNN(comptime T: type) type {
             };
         }
 
-        pub fn forward(self: *@This(), x: *Tensor(T), alloc: std.mem.Allocator) !*Tensor(T) {
+        pub fn call(self: *@This(), x: *Tensor(T)) !*Tensor(T) {
+            const alloc = self.alloc;
             const batch_size = x.shape[0];
             const h_t = try alloc.create(Tensor(T));
             h_t.* = try Tensor(T).zeros(alloc, &.{ batch_size, self.hidden_size }, x.requires_grad);
 
-            const seq_len = x.ndim;
-            _ = seq_len;
-            const ih = try functions.matmul(T, alloc, x, self.w_ih);
-            const hh = try functions.matmul(T, alloc, h_t, self.w_hh);
-            var pre = try functions.add(T, alloc, ih, hh);
+            const ih = try functions.matmul(T, x, self.w_ih);
+            const hh = try functions.matmul(T, h_t, self.w_hh);
+            var pre = try functions.add(T, ih, hh);
             if (self.b_ih) |b_ih| {
-                const with_b_ih = try functions.add(T, alloc, pre, b_ih);
+                const with_b_ih = try functions.add(T, pre, b_ih);
                 if (self.b_hh) |b_hh| {
-                    pre = try functions.add(T, alloc, with_b_ih, b_hh);
+                    pre = try functions.add(T, with_b_ih, b_hh);
                 } else {
                     pre = with_b_ih;
                 }
             }
 
-            const two = try functions.add(T, alloc, pre, pre);
-            const e2x = try functions.exp(T, alloc, two);
+            const two = try functions.add(T, pre, pre);
+            const e2x = try functions.exp(T, two);
             const one_t = try alloc.create(Tensor(T));
             one_t.* = try Tensor(T).ones(alloc, pre.shape[0..pre.ndim], false);
-            const num = try functions.sub(T, alloc, e2x, one_t);
-            const den = try functions.add(T, alloc, e2x, one_t);
-            return functions.div(T, alloc, num, den);
+            const num = try functions.sub(T, e2x, one_t);
+            const den = try functions.add(T, e2x, one_t);
+            return functions.div(T, num, den);
         }
 
         pub fn parameters(self: *@This(), alloc: std.mem.Allocator) ![]*Tensor(T) {

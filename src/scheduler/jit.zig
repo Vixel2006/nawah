@@ -102,8 +102,8 @@ test "JIT — compile and run" {
     var b = try Tensor(f32).fromData(alloc, &.{3}, &[_]f32{ 4, 5, 6 }, true);
 
     const functions = @import("../ops/functions.zig");
-    const c = try functions.add(f32, alloc, &a, &b);
-    const d = try functions.mul(f32, alloc, c, &a);
+    const c = try functions.add(f32, &a, &b);
+    const d = try functions.mul(f32, c, &a);
 
     var graph = Graph(f32).init(alloc);
     defer graph.deinit();
