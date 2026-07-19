@@ -110,6 +110,8 @@ c_sources = [
     "src/scheduler/scheduler.c",
     "src/scheduler/jit.c",
     "src/scheduler/fusion.c",
+    "src/data/dataset.c",
+    "src/lr_scheduler/lr_scheduler.c",
 ]
 
 cu_sources = [
