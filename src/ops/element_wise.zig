@@ -19,7 +19,11 @@ pub const ElementWise = enum {
 
 pub fn getElementWiseFn(op: ElementWise, dtype: u32, device: u32) Function {
     _ = dtype;
-    _ = device;
+    switch (device) {
+        0 => {},
+        1 => @panic("cuda kernels not wired"),
+        else => @panic("unknown device"),
+    }
     return switch (op) {
         .add => .{ .forward = addForward, .backward = addBackward },
         .sub => .{ .forward = subForward, .backward = subBackward },

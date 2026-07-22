@@ -10,7 +10,11 @@ pub const Reduce = enum {
 
 pub fn getReduceFn(op: Reduce, dtype: u32, device: u32) Function {
     _ = dtype;
-    _ = device;
+    switch (device) {
+        0 => {},
+        1 => @panic("cuda kernels not wired"),
+        else => @panic("unknown device"),
+    }
     return switch (op) {
         .sum => .{ .forward = sumForward, .backward = sumBackward },
         .mean => .{ .forward = meanForward, .backward = meanBackward },
