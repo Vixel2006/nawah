@@ -11,7 +11,9 @@ pub const scheduler = @import("scheduler/scheduler.zig");
 pub const optimizer = @import("optimizer/mod.zig");
 pub const optimizers = @import("optimizers/mod.zig");
 pub const nn = @import("nn/mod.zig");
-pub const cudaAlloc = @import("cuda_alloc.zig");
+pub const alc = @import("allocator.zig");
+pub const device = @import("device.zig");
+pub const Device = device.Device;
 
 test {
     _ = @import("tensor.zig");
@@ -25,26 +27,28 @@ test {
     _ = @import("optimizer/mod.zig");
     _ = @import("optimizers/mod.zig");
     _ = @import("nn/mod.zig");
-    _ = @import("cuda_alloc.zig");
+    _ = @import("device.zig");
 }
 
 fn Net(comptime T: type) type {
     return struct {
         const Self = @This();
 
-        alloc: std.mem.Allocator,
+        gpa: std.mem.Allocator,
+        dev: *Device,
         l1: nn.linear.Linear(T),
         sig1: nn.activation.Sigmoid(T),
         l2: nn.linear.Linear(T),
         sig2: nn.activation.Sigmoid(T),
 
-        pub fn init(alloc: std.mem.Allocator) !Self {
+        pub fn init(gpa: std.mem.Allocator, dev: *Device) !Self {
             return .{
-                .alloc = alloc,
-                .l1 = try nn.linear.Linear(T).init(alloc, 2, 8, .{ .seed = 42 }),
-                .sig1 = .{},
-                .l2 = try nn.linear.Linear(T).init(alloc, 8, 1, .{ .seed = 123 }),
-                .sig2 = .{},
+                .gpa = gpa,
+                .dev = dev,
+                .l1 = try nn.linear.Linear(T).init(gpa, dev, 2, 8, .{ .seed = 42 }),
+                .sig1 = nn.activation.Sigmoid(T).init(dev),
+                .l2 = try nn.linear.Linear(T).init(gpa, dev, 8, 1, .{ .seed = 123 }),
+                .sig2 = nn.activation.Sigmoid(T).init(dev),
             };
         }
 
@@ -53,21 +57,21 @@ fn Net(comptime T: type) type {
             self.l1.deinit();
         }
 
-        pub fn call(self: *Self, x: *tensor.Tensor(T)) !*tensor.Tensor(T) {
-            var out = try self.l1.call(x);
-            out = try self.sig1.call(out);
-            out = try self.l2.call(out);
-            out = try self.sig2.call(out);
+        pub fn call(self: *Self, gpa: std.mem.Allocator, x: *tensor.Tensor(T)) !*tensor.Tensor(T) {
+            var out = try self.l1.call(gpa, x);
+            out = try self.sig1.call(gpa, out);
+            out = try self.l2.call(gpa, out);
+            out = try self.sig2.call(gpa, out);
             return out;
         }
 
-        pub fn parameters(self: *Self, allocator: std.mem.Allocator) ![]*tensor.Tensor(T) {
-            const l1p = try self.l1.parameters(allocator);
-            defer allocator.free(l1p);
-            const l2p = try self.l2.parameters(allocator);
-            defer allocator.free(l2p);
+        pub fn parameters(self: *Self, gpa: std.mem.Allocator) ![]*tensor.Tensor(T) {
+            const l1p = try self.l1.parameters(gpa);
+            defer gpa.free(l1p);
+            const l2p = try self.l2.parameters(gpa);
+            defer gpa.free(l2p);
 
-            var params = try allocator.alloc(*tensor.Tensor(T), l1p.len + l2p.len);
+            var params = try gpa.alloc(*tensor.Tensor(T), l1p.len + l2p.len);
             @memcpy(params[0..l1p.len], l1p);
             @memcpy(params[l1p.len..], l2p);
             return params;
@@ -76,43 +80,45 @@ fn Net(comptime T: type) type {
 }
 
 pub fn main() !void {
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    defer arena.deinit();
-    const alloc = arena.allocator();
+    const gpa = std.heap.c_allocator;
+
+    var dev = try Device.init(.cpu);
+    defer dev.deinit();
 
     const T = f32;
     const lr = 0.5;
     const epochs = 20000;
     const use_jit = true;
 
-    var x = try tensor.Tensor(T).fromData(alloc, &.{ 4, 2 }, &[_]T{ 0, 0, 0, 1, 1, 0, 1, 1 }, false);
-    var y = try tensor.Tensor(T).fromData(alloc, &.{ 4, 1 }, &[_]T{ 0, 1, 1, 0 }, false);
+    var x = try tensor.Tensor(T).fromData(&dev, &.{ 4, 2 }, &[_]T{ 0, 0, 0, 1, 1, 0, 1, 1 }, false);
+    defer x.deinit(gpa);
+    var y = try tensor.Tensor(T).fromData(&dev, &.{ 4, 1 }, &[_]T{ 0, 1, 1, 0 }, false);
+    defer y.deinit(gpa);
 
-    var net = try Net(T).init(alloc);
+    var net = try Net(T).init(gpa, &dev);
     defer net.deinit();
 
-    const params = try net.parameters(alloc);
-    defer alloc.free(params);
+    const params = try net.parameters(gpa);
+    defer gpa.free(params);
 
-    var jit = scheduler.JIT(T).init(alloc);
-    defer jit.deinit();
-    var sched = scheduler.Scheduler(T).init(alloc, .{ .jit = &jit });
-    sched.setJitMode(use_jit);
+    if (use_jit) {
+        _ = dev.jit(T);
+    }
 
-    var optim = optimizers.Adam(T).init(alloc, .{ .lr = lr });
+    var optim = optimizers.Adam(T).init(gpa, &dev, .{ .lr = lr });
     defer optim.deinit();
     try optim.addParams(params);
 
-    var loss_fn = nn.loss.MSELoss(T).init(.mean);
+    var loss_fn = nn.loss.MSELoss(T).init(&dev, .mean);
 
     var epoch: u64 = 0;
     while (epoch < epochs) : (epoch += 1) {
         optim.zeroGrad();
 
-        const pred = try net.call(&x);
-        const loss = try loss_fn.call(pred, &y);
+        const pred = try net.call(gpa, &x);
+        const loss = try loss_fn.call(gpa, pred, &y);
 
-        sched.backward(loss);
+        dev.schedule(T, loss, .backward);
         try optim.step();
 
         if (epoch < 10 or epoch % 5000 == 0) {
@@ -120,8 +126,8 @@ pub fn main() !void {
         }
     }
 
-    const pred = try net.call(&x);
-    sched.forward(pred);
+    const pred = try net.call(gpa, &x);
+    dev.schedule(T, pred, .forward);
     std.debug.print("Final predictions:\n", .{});
     for (0..4) |i| {
         const x0 = x.data.?[i * 2];

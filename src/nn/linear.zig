@@ -2,6 +2,7 @@ const std = @import("std");
 const Tensor = @import("../tensor.zig").Tensor;
 const functions = @import("../ops/functions.zig");
 const builtin = @import("builtin");
+const Device = @import("../device.zig").Device;
 
 fn defaultSeed() u64 {
     if (builtin.os.tag == .linux) {
@@ -18,33 +19,31 @@ pub fn Linear(comptime T: type) type {
     return struct {
         const Self = @This();
 
-        alloc: std.mem.Allocator,
+        gpa: std.mem.Allocator,
+        dev: *Device,
         weight: *Tensor(T),
         bias: ?*Tensor(T),
         in_features: u64,
         out_features: u64,
 
-        pub fn init(alloc: std.mem.Allocator, in_features: u64, out_features: u64, opts: struct {
+        pub fn init(gpa: std.mem.Allocator, dev: *Device, in_features: u64, out_features: u64, opts: struct {
             bias: bool = true,
             seed: ?u64 = null,
         }) !Self {
             var rng = if (opts.seed) |s| std.Random.DefaultPrng.init(s) else std.Random.DefaultPrng.init(defaultSeed());
-            const bound = std.math.sqrt(6.0 / @as(T, @floatFromInt(in_features)));
 
-            const weight = try alloc.create(Tensor(T));
-            weight.* = try Tensor(T).zeros(alloc, &.{ in_features, out_features }, true);
-            for (weight.data.?) |*v| {
-                v.* = rng.random().float(T) * 2 * bound - bound;
-            }
+            const weight = try gpa.create(Tensor(T));
+            weight.* = try Tensor(T).kaimingUniform(dev, &.{ in_features, out_features }, true, rng.random());
 
             const bias: ?*Tensor(T) = if (opts.bias) blk: {
-                const b = try alloc.create(Tensor(T));
-                b.* = try Tensor(T).zeros(alloc, &.{out_features}, true);
+                const b = try gpa.create(Tensor(T));
+                b.* = try Tensor(T).zeros(dev, &.{out_features}, true);
                 break :blk b;
             } else null;
 
             return .{
-                .alloc = alloc,
+                .gpa = gpa,
+                .dev = dev,
                 .weight = weight,
                 .bias = bias,
                 .in_features = in_features,
@@ -53,30 +52,30 @@ pub fn Linear(comptime T: type) type {
         }
 
         pub fn deinit(self: *Self) void {
-            self.weight.deinit();
-            self.alloc.destroy(self.weight);
+            self.weight.deinit(self.gpa);
+            self.gpa.destroy(self.weight);
             if (self.bias) |b| {
-                b.deinit();
-                self.alloc.destroy(b);
+                b.deinit(self.gpa);
+                self.gpa.destroy(b);
             }
         }
 
-        pub fn call(self: *Self, x: *Tensor(T)) !*Tensor(T) {
-            var out = try functions.matmul(T, x, self.weight);
+        pub fn call(self: *Self, gpa: std.mem.Allocator, x: *Tensor(T)) !*Tensor(T) {
+            var out = try functions.matmul(T, gpa, x, self.weight);
             if (self.bias) |b| {
-                out = try functions.add(T, out, b);
+                out = try functions.add(T, gpa, out, b);
             }
             return out;
         }
 
-        pub fn parameters(self: *Self, allocator: std.mem.Allocator) ![]*Tensor(T) {
+        pub fn parameters(self: *Self, gpa: std.mem.Allocator) ![]*Tensor(T) {
             if (self.bias) |b| {
-                var params = try allocator.alloc(*Tensor(T), 2);
+                var params = try gpa.alloc(*Tensor(T), 2);
                 params[0] = self.weight;
                 params[1] = b;
                 return params;
             }
-            var params = try allocator.alloc(*Tensor(T), 1);
+            var params = try gpa.alloc(*Tensor(T), 1);
             params[0] = self.weight;
             return params;
         }
@@ -86,12 +85,12 @@ pub fn Linear(comptime T: type) type {
 const testing = std.testing;
 
 test "Linear — init and forward" {
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    defer arena.deinit();
-    const alloc = arena.allocator();
+    const gpa = testing.allocator;
+    var dev = try Device.init(.cpu);
+    defer dev.deinit();
 
     const rng_seed: u64 = 42;
-    var linear = try Linear(f32).init(alloc, 4, 3, .{ .seed = rng_seed });
+    var linear = try Linear(f32).init(gpa, &dev, 4, 3, .{ .seed = rng_seed });
     defer linear.deinit();
 
     try testing.expect(linear.in_features == 4);
@@ -101,30 +100,31 @@ test "Linear — init and forward" {
     try testing.expect(linear.bias != null);
     try testing.expect(linear.bias.?.shape[0] == 3);
 
-    var x = try Tensor(f32).ones(alloc, &.{2, 4}, false);
-    const out = try linear.call(&x);
+    var x = try Tensor(f32).ones(&dev, &.{ 2, 4 }, false);
+    defer x.deinit(gpa);
+    const out = try linear.call(gpa, &x);
     try testing.expect(out.shape[0] == 2);
     try testing.expect(out.shape[1] == 3);
 }
 
 test "Linear — parameters" {
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    defer arena.deinit();
-    const alloc = arena.allocator();
+    const gpa = testing.allocator;
+    var dev = try Device.init(.cpu);
+    defer dev.deinit();
 
-    var linear_with_bias = try Linear(f32).init(alloc, 4, 3, .{});
+    var linear_with_bias = try Linear(f32).init(gpa, &dev, 4, 3, .{});
     defer linear_with_bias.deinit();
     {
-        const params = try linear_with_bias.parameters(alloc);
-        defer alloc.free(params);
+        const params = try linear_with_bias.parameters(gpa);
+        defer gpa.free(params);
         try testing.expect(params.len == 2);
     }
 
-    var linear_no_bias = try Linear(f32).init(alloc, 4, 3, .{ .bias = false });
+    var linear_no_bias = try Linear(f32).init(gpa, &dev, 4, 3, .{ .bias = false });
     defer linear_no_bias.deinit();
     {
-        const params = try linear_no_bias.parameters(alloc);
-        defer alloc.free(params);
+        const params = try linear_no_bias.parameters(gpa);
+        defer gpa.free(params);
         try testing.expect(params.len == 1);
     }
 }

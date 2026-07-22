@@ -5,26 +5,26 @@ pub fn Optimizer(comptime T: type) type {
     return struct {
         const Self = @This();
 
-        alloc: std.mem.Allocator,
+        gpa: std.mem.Allocator,
         lr: T,
         params: std.ArrayList(*Tensor(T)),
 
-        pub fn init(alloc: std.mem.Allocator, opts: struct {
+        pub fn init(gpa: std.mem.Allocator, opts: struct {
             lr: T = 0.01,
         }) Self {
             return .{
-                .alloc = alloc,
+                .gpa = gpa,
                 .lr = opts.lr,
                 .params = .empty,
             };
         }
 
         pub fn deinit(self: *Self) void {
-            self.params.deinit(self.alloc);
+            self.params.deinit(self.gpa);
         }
 
         pub fn addParams(self: *Self, p: []*Tensor(T)) !void {
-            try self.params.appendSlice(self.alloc, p);
+            try self.params.appendSlice(self.gpa, p);
         }
 
         pub fn setLr(self: *Self, lr: T) void {

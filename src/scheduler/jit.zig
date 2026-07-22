@@ -1,21 +1,22 @@
 const std = @import("std");
+const assert = std.debug.assert;
 const Node = @import("../node.zig").Node;
 const Graph = @import("../graph.zig").Graph;
 const Tensor = @import("../tensor.zig").Tensor;
 const fusion = @import("fusion.zig");
-const c_api = @import("../c_api.zig");
+const Device = @import("../device.zig").Device;
 
 pub fn JIT(comptime T: type) type {
     return struct {
         const Self = @This();
 
-        alloc: std.mem.Allocator,
+        gpa: std.mem.Allocator,
         cache: std.AutoHashMap(u64, *Graph(T)),
 
-        pub fn init(alloc: std.mem.Allocator) Self {
+        pub fn init(gpa: std.mem.Allocator) Self {
             return .{
-                .alloc = alloc,
-                .cache = std.AutoHashMap(u64, *Graph(T)).init(alloc),
+                .gpa = gpa,
+                .cache = std.AutoHashMap(u64, *Graph(T)).init(gpa),
             };
         }
 
@@ -23,44 +24,34 @@ pub fn JIT(comptime T: type) type {
             var it = self.cache.valueIterator();
             while (it.next()) |compiled| {
                 compiled.*.deinit();
-                self.alloc.destroy(compiled.*);
+                self.gpa.destroy(compiled.*);
             }
             self.cache.deinit();
         }
 
+        /// Compile the given graph. Hashes the structure and caches the result.
         pub fn compile(self: *Self, graph: *Graph(T)) !*Graph(T) {
-            // Hash the topology and structure of the graph
+            assert(graph.nodes.items.len > 0);
+
             var hasher = std.hash.Fnv1a_64.init();
             for (graph.nodes.items) |node| {
-                const opTag: u32 = @intCast(@intFromEnum(std.meta.activeTag(node.op.op_type)));
-                hasher.update(std.mem.asBytes(&opTag));
+                const active_tag = std.meta.activeTag(node.op.op_type);
+                hasher.update(std.mem.asBytes(&active_tag));
+
                 switch (node.op.op_type) {
-                    .element_wise => |ew| {
-                        var inner: u32 = @intFromEnum(ew);
-                        hasher.update(std.mem.asBytes(&inner));
-                    },
-                    .reduce => |r| {
-                        var inner: u32 = @intFromEnum(r);
-                        hasher.update(std.mem.asBytes(&inner));
-                    },
-                    .linear => |l| {
-                        var inner: u32 = @intFromEnum(l);
-                        hasher.update(std.mem.asBytes(&inner));
-                    },
-                    .fused => |f| {
-                        var inner: u32 = @intFromEnum(f);
-                        hasher.update(std.mem.asBytes(&inner));
-                    },
+                    .element_wise => |ew| hasher.update(std.mem.asBytes(&ew)),
+                    .reduce => |r| hasher.update(std.mem.asBytes(&r)),
+                    .linear => |l| hasher.update(std.mem.asBytes(&l)),
+                    .fused => |f| hasher.update(std.mem.asBytes(&f)),
                 }
-                var numInputs: u32 = @intCast(node.inputs.len);
-                hasher.update(std.mem.asBytes(&numInputs));
+
+                const num_inputs: u32 = @intCast(node.inputs.len);
+                hasher.update(std.mem.asBytes(&num_inputs));
                 hasher.update(std.mem.asBytes(&node.op.params.dim));
                 hasher.update(std.mem.asBytes(&node.op.params.keepdim));
                 hasher.update(std.mem.asBytes(&node.op.params.fval));
                 hasher.update(std.mem.asBytes(&node.output.ndim));
-                for (node.output.shape[0..node.output.ndim]) |dim| {
-                    hasher.update(std.mem.asBytes(&dim));
-                }
+                hasher.update(std.mem.sliceAsBytes(node.output.shape[0..node.output.ndim]));
             }
             const fp = hasher.final();
 
@@ -68,57 +59,66 @@ pub fn JIT(comptime T: type) type {
                 return cached;
             }
 
-            // Apply JIT optimizations (like fusion) in-place
-            _ = try fusion.optimize(T, graph, self.alloc);
+            // Optimize graph structure in-place
+            _ = try fusion.optimize(T, graph, self.gpa);
 
-            // Capture the optimized nodes array
-            const captured_nodes = try self.alloc.alloc(*Node(T), graph.nodes.items.len);
+            const captured_nodes = try self.gpa.alloc(*Node(T), graph.nodes.items.len);
             @memcpy(captured_nodes, graph.nodes.items);
-            const node_list = std.ArrayList(*Node(T)).fromOwnedSlice(captured_nodes);
-            std.debug.print("Compiled graph has {d} nodes:\n", .{node_list.items.len});
-            for (node_list.items, 0..) |node, i| {
-                std.debug.print("  node {d}: op_type={any}\n", .{ i, node.op.op_type });
-            }
 
-            const compiled_ptr = try self.alloc.create(Graph(T));
+            const compiled_ptr = try self.gpa.create(Graph(T));
             compiled_ptr.* = Graph(T){
-                .alloc = self.alloc,
-                .nodes = node_list,
+                .gpa = self.gpa,
+                .nodes = std.ArrayList(*Node(T)).fromOwnedSlice(captured_nodes),
             };
+
+            std.log.debug("Compiled graph with {d} nodes (hash={X:0>16})", .{ captured_nodes.len, fp });
             try self.cache.put(fp, compiled_ptr);
             return compiled_ptr;
         }
     };
 }
 
-const testing = std.testing;
-
 test "JIT — compile and run" {
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    defer arena.deinit();
-    const alloc = arena.allocator();
+    const gpa = std.testing.allocator;
+    var dev = try Device.init(.cpu);
+    defer dev.deinit();
 
-    var a = try Tensor(f32).fromData(alloc, &.{3}, &[_]f32{ 1, 2, 3 }, true);
-    var b = try Tensor(f32).fromData(alloc, &.{3}, &[_]f32{ 4, 5, 6 }, true);
+    var a = try Tensor(f32).fromData(&dev, &.{3}, &[_]f32{ 1, 2, 3 }, true);
+    defer a.deinit(gpa);
+
+    var b = try Tensor(f32).fromData(&dev, &.{3}, &[_]f32{ 4, 5, 6 }, true);
+    defer b.deinit(gpa);
 
     const functions = @import("../ops/functions.zig");
-    const c = try functions.add(f32, &a, &b);
-    const d = try functions.mul(f32, c, &a);
+    const c = try functions.add(f32, gpa, &a, &b);
+    defer {
+        if (c.creator) |node| {
+            node.deinit();
+            gpa.destroy(node);
+        }
+    }
+    const d = try functions.mul(f32, gpa, c, &a);
+    defer {
+        if (d.creator) |node| {
+            node.deinit();
+            gpa.destroy(node);
+        }
+    }
 
-    var graph = Graph(f32).init(alloc);
+    var graph = Graph(f32).init(gpa);
     defer graph.deinit();
     graph.dag(d.creator.?);
 
-    var compiler = JIT(f32).init(alloc);
+    var compiler = JIT(f32).init(gpa);
     defer compiler.deinit();
 
     var compiled = try compiler.compile(&graph);
     compiled.forward();
 
-    try testing.expect(d.data != null);
+    try std.testing.expect(d.data != null);
     if (d.data) |data| {
-        try testing.expectEqual(@as(f32, 5), data[0]);
-        try testing.expectEqual(@as(f32, 14), data[1]);
-        try testing.expectEqual(@as(f32, 27), data[2]);
+        try std.testing.expectEqual(@as(f32, 5), data[0]);
+        try std.testing.expectEqual(@as(f32, 14), data[1]);
+        try std.testing.expectEqual(@as(f32, 27), data[2]);
     }
 }

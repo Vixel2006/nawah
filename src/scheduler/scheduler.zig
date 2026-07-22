@@ -1,28 +1,27 @@
 const std = @import("std");
+const Device = @import("../device.zig").Device;
 const Graph = @import("../graph.zig").Graph;
 const Tensor = @import("../tensor.zig").Tensor;
 const fusion = @import("fusion.zig");
-const Jit = @import("jit.zig").JIT;
-
-pub const JIT = Jit;
+const JIT = @import("jit.zig").JIT;
 
 pub fn Scheduler(comptime T: type) type {
     return struct {
         const Self = @This();
 
-        alloc: std.mem.Allocator,
+        gpa: std.mem.Allocator,
+        dev: *Device,
         jit: ?*JIT(T),
-        jit_mode: bool,
         graph: Graph(T),
 
-        pub fn init(alloc: std.mem.Allocator, opts: struct {
+        pub fn init(gpa: std.mem.Allocator, dev: *Device, opts: struct {
             jit: ?*JIT(T) = null,
         }) Self {
             return .{
-                .alloc = alloc,
+                .gpa = gpa,
+                .dev = dev,
                 .jit = opts.jit,
-                .jit_mode = false,
-                .graph = Graph(T).init(alloc),
+                .graph = Graph(T).init(gpa),
             };
         }
 
@@ -34,40 +33,37 @@ pub fn Scheduler(comptime T: type) type {
             self.jit = j;
         }
 
-        pub fn setJitMode(self: *Self, mode: bool) void {
-            self.jit_mode = mode;
-        }
-
-        fn optimize(self: *Self) void {
-            if (self.jit_mode) {
-                _ = fusion.optimize(T, &self.graph, self.alloc) catch {};
-            }
-        }
-
         pub fn forward(self: *Self, tensor: *Tensor(T)) void {
             self.graph.dag(tensor.creator.?);
-            self.optimize();
-            self.graph.forward();
+            self.getRunnableGraph().forward();
         }
 
         pub fn backward(self: *Self, loss: *Tensor(T)) void {
             if (loss.grad) |g| {
-                g.deinit();
-                self.alloc.destroy(g);
+                g.deinit(self.gpa);
+                self.gpa.destroy(g);
                 loss.grad = null;
             }
 
             self.graph.dag(loss.creator.?);
-            self.optimize();
-            self.graph.forward();
+            const g = self.getRunnableGraph();
+            g.forward();
 
-            const grad = self.alloc.create(Tensor(T)) catch return;
-            grad.* = Tensor(T).ones(self.alloc, loss.shape[0..loss.ndim], false) catch return;
+            const grad = self.gpa.create(Tensor(T)) catch return;
+            grad.* = Tensor(T).ones(self.dev, loss.shape[0..loss.ndim], false) catch return;
             loss.grad = grad;
 
-            self.graph.backward() catch |err| {
-                std.debug.print("Error during backward: {any}\n", .{err});
+            g.backward() catch |err| {
+                std.log.err("Scheduler backward error: {any}", .{err});
             };
+        }
+
+        fn getRunnableGraph(self: *Self) *Graph(T) {
+            if (self.jit) |_| {
+                // Apply graph fusion in-place on the fresh eager graph
+                _ = fusion.optimize(T, &self.graph, self.gpa) catch {};
+            }
+            return &self.graph;
         }
     };
 }

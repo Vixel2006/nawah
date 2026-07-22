@@ -1,4 +1,5 @@
 const std = @import("std");
+const Device = @import("../device.zig").Device;
 const Node = @import("../node.zig").Node;
 const Graph = @import("../graph.zig").Graph;
 const Tensor = @import("../tensor.zig").Tensor;
@@ -39,14 +40,14 @@ fn isAdd(comptime T: type, node: *Node(T)) bool {
     };
 }
 
-fn tryMatchEndingAt(comptime T: type, graph: *Graph(T), node_idx: usize, alloc: std.mem.Allocator) ?Match(T) {
+fn tryMatchEndingAt(comptime T: type, graph: *Graph(T), node_idx: usize, gpa: std.mem.Allocator) ?Match(T) {
     const node = graph.nodes.items[node_idx];
     if (!isRelu(T, node) or node.inputs.len != 1) return null;
 
     const producer = node.inputs[0].creator orelse return null;
 
     if (isMatmul(T, producer)) {
-        var nodes = alloc.alloc(*Node(T), 2) catch return null;
+        var nodes = gpa.alloc(*Node(T), 2) catch return null;
         nodes[0] = producer;
         nodes[1] = node;
         return Match(T){ .pattern = .matmul_relu, .nodes = nodes };
@@ -59,7 +60,7 @@ fn tryMatchEndingAt(comptime T: type, graph: *Graph(T), node_idx: usize, alloc: 
         if (!isMatmul(T, add_lhs)) return null;
         if (add.inputs[1].ndim != 1) return null;
 
-        var nodes = alloc.alloc(*Node(T), 3) catch return null;
+        var nodes = gpa.alloc(*Node(T), 3) catch return null;
         nodes[0] = add_lhs;
         nodes[1] = add;
         nodes[2] = node;
@@ -69,12 +70,12 @@ fn tryMatchEndingAt(comptime T: type, graph: *Graph(T), node_idx: usize, alloc: 
     return null;
 }
 
-pub fn findPatterns(comptime T: type, graph: *Graph(T), alloc: std.mem.Allocator) !std.ArrayList(Match(T)) {
+pub fn findPatterns(comptime T: type, graph: *Graph(T), gpa: std.mem.Allocator) !std.ArrayList(Match(T)) {
     var matches: std.ArrayList(Match(T)) = .empty;
     for (graph.nodes.items, 0..) |n, i| {
         if (isRelu(T, n)) {
-            if (tryMatchEndingAt(T, graph, i, alloc)) |match| {
-                try matches.append(alloc, match);
+            if (tryMatchEndingAt(T, graph, i, gpa)) |match| {
+                try matches.append(gpa, match);
             }
         }
     }
@@ -88,7 +89,7 @@ fn nodeIndex(comptime T: type, graph: *Graph(T), target: *Node(T)) ?usize {
     return null;
 }
 
-pub fn apply(comptime T: type, graph: *Graph(T), match: Match(T), alloc: std.mem.Allocator) !void {
+pub fn apply(comptime T: type, graph: *Graph(T), match: Match(T), gpa: std.mem.Allocator) !void {
     switch (match.pattern) {
         .matmul_relu => {
             const mm = match.nodes[0];
@@ -97,25 +98,31 @@ pub fn apply(comptime T: type, graph: *Graph(T), match: Match(T), alloc: std.mem
             const func = getFunction(.{ .fused = .matmul_relu }, 1, 0);
             const op = Op{ .op_type = .{ .fused = .matmul_relu }, .params = relu.op.params, .function = func };
 
-            var fused = try alloc.create(Node(T));
-            fused.init(alloc, mm.inputs, relu.output, op);
+            var fused = try gpa.create(Node(T));
+            fused.init(gpa, mm.dev, mm.inputs, relu.output, op);
 
             var indices: std.ArrayList(usize) = .empty;
-            defer indices.deinit(alloc);
+            defer indices.deinit(gpa);
 
             for (match.nodes) |mn| {
-                if (nodeIndex(T, graph, mn)) |idx| try indices.append(alloc, idx);
+                if (nodeIndex(T, graph, mn)) |idx| try indices.append(gpa, idx);
             }
             if (indices.items.len != 2) return;
 
             std.mem.sort(usize, indices.items, {}, comptime std.sort.desc(usize));
-            for (indices.items) |idx| _ = graph.nodes.orderedRemove(idx);
+            for (indices.items) |idx| {
+                const old = graph.nodes.orderedRemove(idx);
+                if (old != mm) {
+                    gpa.free(old.inputs);
+                }
+                gpa.destroy(old);
+            }
 
             var min: usize = indices.items[0];
             for (indices.items) |idx| {
                 if (idx < min) min = idx;
             }
-            try graph.nodes.insert(alloc, min, fused);
+            try graph.nodes.insert(gpa, min, fused);
         },
 
         .matmul_bias_relu => {
@@ -126,45 +133,49 @@ pub fn apply(comptime T: type, graph: *Graph(T), match: Match(T), alloc: std.mem
             const func = getFunction(.{ .fused = .matmul_relu }, 1, 0);
             const op = Op{ .op_type = .{ .fused = .matmul_relu }, .params = relu.op.params, .function = func };
 
-            var fused_inputs = try alloc.alloc(*Tensor(T), 3);
+            var fused_inputs = try gpa.alloc(*Tensor(T), 3);
             fused_inputs[0] = mm.inputs[0];
             fused_inputs[1] = mm.inputs[1];
             fused_inputs[2] = add.inputs[1];
 
-            var fused = try alloc.create(Node(T));
-            fused.init(alloc, fused_inputs, relu.output, op);
+            var fused = try gpa.create(Node(T));
+            fused.init(gpa, mm.dev, fused_inputs, relu.output, op);
 
             var indices: std.ArrayList(usize) = .empty;
-            defer indices.deinit(alloc);
+            defer indices.deinit(gpa);
             for (match.nodes) |mn| {
-                if (nodeIndex(T, graph, mn)) |idx| try indices.append(alloc, idx);
+                if (nodeIndex(T, graph, mn)) |idx| try indices.append(gpa, idx);
             }
             if (indices.items.len != 3) return;
 
             std.mem.sort(usize, indices.items, {}, comptime std.sort.desc(usize));
-            for (indices.items) |idx| _ = graph.nodes.orderedRemove(idx);
+            for (indices.items) |idx| {
+                const old = graph.nodes.orderedRemove(idx);
+                gpa.free(old.inputs);
+                gpa.destroy(old);
+            }
 
             var min: usize = indices.items[0];
             for (indices.items) |idx| {
                 if (idx < min) min = idx;
             }
-            try graph.nodes.insert(alloc, min, fused);
+            try graph.nodes.insert(gpa, min, fused);
         },
 
         .none => {},
     }
 }
 
-pub fn optimize(comptime T: type, graph: *Graph(T), alloc: std.mem.Allocator) !u32 {
-    var matches = try findPatterns(T, graph, alloc);
+pub fn optimize(comptime T: type, graph: *Graph(T), gpa: std.mem.Allocator) !u32 {
+    var matches = try findPatterns(T, graph, gpa);
     defer {
-        for (matches.items) |m| alloc.free(m.nodes);
-        matches.deinit(alloc);
+        for (matches.items) |m| gpa.free(m.nodes);
+        matches.deinit(gpa);
     }
 
     var applied: u32 = 0;
     for (matches.items) |m| {
-        apply(T, graph, m, alloc) catch continue;
+        apply(T, graph, m, gpa) catch continue;
         applied += 1;
     }
     return applied;
@@ -173,9 +184,9 @@ pub fn optimize(comptime T: type, graph: *Graph(T), alloc: std.mem.Allocator) !u
 const testing = std.testing;
 
 test "fusion — find matmul+relu pattern" {
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    defer arena.deinit();
-    const alloc = arena.allocator();
+    const gpa = testing.allocator;
+    var dev = try Device.init(.cpu);
+    defer dev.deinit();
 
     const matmul_fn = getFunction(.{ .linear = .matmul }, 1, 0);
     const matmul_op = Op{ .op_type = .{ .linear = .matmul }, .params = .{ .dim = 0, .keepdim = 0, .fval = 0 }, .function = matmul_fn };
@@ -183,38 +194,62 @@ test "fusion — find matmul+relu pattern" {
     const relu_fn = getFunction(.{ .element_wise = .relu }, 1, 0);
     const relu_op = Op{ .op_type = .{ .element_wise = .relu }, .params = .{ .dim = 0, .keepdim = 0, .fval = 0 }, .function = relu_fn };
 
-    const t_a = try alloc.create(Tensor(f32));
-    t_a.* = try Tensor(f32).zeros(alloc, &.{ 2, 2 }, false);
-    const t_b = try alloc.create(Tensor(f32));
-    t_b.* = try Tensor(f32).zeros(alloc, &.{ 2, 2 }, false);
-    const t_mm = try alloc.create(Tensor(f32));
-    t_mm.* = try Tensor(f32).zeros(alloc, &.{ 2, 2 }, false);
-    const t_out = try alloc.create(Tensor(f32));
-    t_out.* = try Tensor(f32).zeros(alloc, &.{ 2, 2 }, false);
+    const t_a = try gpa.create(Tensor(f32));
+    t_a.* = try Tensor(f32).zeros(&dev, &.{ 2, 2 }, false);
+    defer {
+        t_a.deinit(gpa);
+        gpa.destroy(t_a);
+    }
+    const t_b = try gpa.create(Tensor(f32));
+    t_b.* = try Tensor(f32).zeros(&dev, &.{ 2, 2 }, false);
+    defer {
+        t_b.deinit(gpa);
+        gpa.destroy(t_b);
+    }
+    const t_mm = try gpa.create(Tensor(f32));
+    t_mm.* = try Tensor(f32).zeros(&dev, &.{ 2, 2 }, false);
+    defer {
+        t_mm.deinit(gpa);
+        gpa.destroy(t_mm);
+    }
+    const t_out = try gpa.create(Tensor(f32));
+    t_out.* = try Tensor(f32).zeros(&dev, &.{ 2, 2 }, false);
+    defer {
+        t_out.deinit(gpa);
+        gpa.destroy(t_out);
+    }
 
-    const mm_ins = try alloc.alloc(*Tensor(f32), 2);
+    const mm_ins = try gpa.alloc(*Tensor(f32), 2);
     mm_ins[0] = t_a;
     mm_ins[1] = t_b;
 
-    var mm_node: Node(f32) = undefined;
-    mm_node.init(alloc, mm_ins, t_mm, matmul_op);
+    const mm_node = try gpa.create(Node(f32));
+    mm_node.init(gpa, &dev, mm_ins, t_mm, matmul_op);
+    defer {
+        gpa.free(mm_ins);
+        gpa.destroy(mm_node);
+    }
 
-    const relu_ins = try alloc.alloc(*Tensor(f32), 1);
+    const relu_ins = try gpa.alloc(*Tensor(f32), 1);
     relu_ins[0] = t_mm;
 
-    var relu_node: Node(f32) = undefined;
-    relu_node.init(alloc, relu_ins, t_out, relu_op);
+    const relu_node = try gpa.create(Node(f32));
+    relu_node.init(gpa, &dev, relu_ins, t_out, relu_op);
+    defer {
+        gpa.free(relu_ins);
+        gpa.destroy(relu_node);
+    }
 
-    var graph = Graph(f32).init(alloc);
+    var graph = Graph(f32).init(gpa);
     defer graph.deinit();
-    graph.dag(&relu_node);
+    graph.dag(relu_node);
 
     try testing.expect(graph.nodes.items.len == 2);
 
-    var matches = try findPatterns(f32, &graph, alloc);
+    var matches = try findPatterns(f32, &graph, gpa);
     defer {
-        for (matches.items) |m| alloc.free(m.nodes);
-        matches.deinit(alloc);
+        for (matches.items) |m| gpa.free(m.nodes);
+        matches.deinit(gpa);
     }
 
     try testing.expect(matches.items.len == 1);
@@ -222,9 +257,9 @@ test "fusion — find matmul+relu pattern" {
 }
 
 test "fusion — apply matmul+relu fusion" {
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    defer arena.deinit();
-    const alloc = arena.allocator();
+    const gpa = testing.allocator;
+    var dev = try Device.init(.cpu);
+    defer dev.deinit();
 
     const matmul_fn = getFunction(.{ .linear = .matmul }, 1, 0);
     const matmul_op = Op{ .op_type = .{ .linear = .matmul }, .params = .{ .dim = 0, .keepdim = 0, .fval = 0 }, .function = matmul_fn };
@@ -232,33 +267,55 @@ test "fusion — apply matmul+relu fusion" {
     const relu_fn = getFunction(.{ .element_wise = .relu }, 1, 0);
     const relu_op = Op{ .op_type = .{ .element_wise = .relu }, .params = .{ .dim = 0, .keepdim = 0, .fval = 0 }, .function = relu_fn };
 
-    const t_a = try alloc.create(Tensor(f32));
-    t_a.* = try Tensor(f32).zeros(alloc, &.{ 2, 2 }, false);
-    const t_b = try alloc.create(Tensor(f32));
-    t_b.* = try Tensor(f32).zeros(alloc, &.{ 2, 2 }, false);
-    const t_mm = try alloc.create(Tensor(f32));
-    t_mm.* = try Tensor(f32).zeros(alloc, &.{ 2, 2 }, false);
-    const t_out = try alloc.create(Tensor(f32));
-    t_out.* = try Tensor(f32).zeros(alloc, &.{ 2, 2 }, false);
+    const t_a = try gpa.create(Tensor(f32));
+    t_a.* = try Tensor(f32).zeros(&dev, &.{ 2, 2 }, false);
+    defer {
+        t_a.deinit(gpa);
+        gpa.destroy(t_a);
+    }
+    const t_b = try gpa.create(Tensor(f32));
+    t_b.* = try Tensor(f32).zeros(&dev, &.{ 2, 2 }, false);
+    defer {
+        t_b.deinit(gpa);
+        gpa.destroy(t_b);
+    }
+    const t_mm = try gpa.create(Tensor(f32));
+    t_mm.* = try Tensor(f32).zeros(&dev, &.{ 2, 2 }, false);
+    defer {
+        t_mm.deinit(gpa);
+        gpa.destroy(t_mm);
+    }
+    const t_out = try gpa.create(Tensor(f32));
+    t_out.* = try Tensor(f32).zeros(&dev, &.{ 2, 2 }, false);
+    defer {
+        t_out.deinit(gpa);
+        gpa.destroy(t_out);
+    }
 
-    const mm_ins = try alloc.alloc(*Tensor(f32), 2);
+    const mm_ins = try gpa.alloc(*Tensor(f32), 2);
     mm_ins[0] = t_a;
     mm_ins[1] = t_b;
 
-    var mm_node: Node(f32) = undefined;
-    mm_node.init(alloc, mm_ins, t_mm, matmul_op);
+    const mm_node = try gpa.create(Node(f32));
+    mm_node.init(gpa, &dev, mm_ins, t_mm, matmul_op);
 
-    const relu_ins = try alloc.alloc(*Tensor(f32), 1);
+    const relu_ins = try gpa.alloc(*Tensor(f32), 1);
     relu_ins[0] = t_mm;
 
-    var relu_node: Node(f32) = undefined;
-    relu_node.init(alloc, relu_ins, t_out, relu_op);
+    const relu_node = try gpa.create(Node(f32));
+    relu_node.init(gpa, &dev, relu_ins, t_out, relu_op);
 
-    var graph = Graph(f32).init(alloc);
-    defer graph.deinit();
-    graph.dag(&relu_node);
+    var graph = Graph(f32).init(gpa);
+    defer {
+        for (graph.nodes.items) |n| {
+            gpa.free(n.inputs);
+            gpa.destroy(n);
+        }
+        graph.deinit();
+    }
+    graph.dag(relu_node);
 
-    const applied = try optimize(f32, &graph, alloc);
+    const applied = try optimize(f32, &graph, gpa);
     try testing.expect(applied == 1);
     try testing.expect(graph.nodes.items.len == 1);
 }
