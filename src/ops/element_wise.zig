@@ -19,99 +19,33 @@ pub const ElementWise = enum {
 
 pub fn getElementWiseFn(op: ElementWise, dtype: u32, device: u32) Function {
     _ = dtype;
-    switch (device) {
-        0 => {},
-        1 => @panic("cuda kernels not wired"),
+    return switch (device) {
+        0 => switch (op) {
+            .add => .{ .forward = c_api.add_cpu_forward, .backward = c_api.add_cpu_backward },
+            .sub => .{ .forward = c_api.sub_cpu_forward, .backward = c_api.sub_cpu_backward },
+            .mul => .{ .forward = c_api.mul_cpu_forward, .backward = c_api.mul_cpu_backward },
+            .div => .{ .forward = c_api.div_cpu_forward, .backward = c_api.div_cpu_backward },
+            .relu => .{ .forward = c_api.leaky_relu_cpu_forward, .backward = c_api.leaky_relu_cpu_backward },
+            .exp => .{ .forward = c_api.exp_cpu_forward, .backward = c_api.exp_cpu_backward },
+            .log => .{ .forward = c_api.log_cpu_forward, .backward = c_api.log_cpu_backward },
+            .sin => .{ .forward = c_api.sin_cpu_forward, .backward = c_api.sin_cpu_backward },
+            .cos => .{ .forward = c_api.cos_cpu_forward, .backward = c_api.cos_cpu_backward },
+            .abs => .{ .forward = c_api.abs_cpu_forward, .backward = c_api.abs_cpu_backward },
+            .neg => .{ .forward = c_api.neg_cpu_forward, .backward = c_api.neg_cpu_backward },
+        },
+        1 => switch (op) {
+            .add => .{ .forward = c_api.add_cuda_forward, .backward = c_api.add_cuda_backward },
+            .sub => .{ .forward = c_api.sub_cuda_forward, .backward = c_api.sub_cuda_backward },
+            .mul => .{ .forward = c_api.mul_cuda_forward, .backward = c_api.mul_cuda_backward },
+            .div => .{ .forward = c_api.div_cuda_forward, .backward = c_api.div_cuda_backward },
+            .relu => .{ .forward = c_api.leaky_relu_cuda_forward, .backward = c_api.leaky_relu_cuda_backward },
+            .exp => .{ .forward = c_api.exp_cuda_forward, .backward = c_api.exp_cuda_backward },
+            .log => .{ .forward = c_api.log_cuda_forward, .backward = c_api.log_cuda_backward },
+            .sin => .{ .forward = c_api.sin_cuda_forward, .backward = c_api.sin_cuda_backward },
+            .cos => .{ .forward = c_api.cos_cuda_forward, .backward = c_api.cos_cuda_backward },
+            .abs => .{ .forward = c_api.abs_cuda_forward, .backward = c_api.abs_cuda_backward },
+            .neg => .{ .forward = c_api.neg_cuda_forward, .backward = c_api.neg_cuda_backward },
+        },
         else => @panic("unknown device"),
-    }
-    return switch (op) {
-        .add => .{ .forward = addForward, .backward = addBackward },
-        .sub => .{ .forward = subForward, .backward = subBackward },
-        .mul => .{ .forward = mulForward, .backward = mulBackward },
-        .div => .{ .forward = divForward, .backward = divBackward },
-        .relu => .{ .forward = reluForward, .backward = reluBackward },
-        .exp => .{ .forward = expForward, .backward = expBackward },
-        .log => .{ .forward = logForward, .backward = logBackward },
-        .sin => .{ .forward = sinForward, .backward = sinBackward },
-        .cos => .{ .forward = cosForward, .backward = cosBackward },
-        .abs => .{ .forward = absForward, .backward = absBackward },
-        .neg => .{ .forward = negForward, .backward = negBackward },
     };
-}
-
-fn addForward(inputs: [*c]?*const c_api.C_Tensor, output: *c_api.C_Tensor, params: c_api.KernelParams) void {
-    c_api.add_cpu_forward(inputs, output, params);
-}
-fn addBackward(inputs: [*c]?*const c_api.C_Tensor, output: *const c_api.C_Tensor, params: c_api.KernelParams) void {
-    c_api.add_cpu_backward(inputs, output, params);
-}
-
-fn subForward(inputs: [*c]?*const c_api.C_Tensor, output: *c_api.C_Tensor, params: c_api.KernelParams) void {
-    c_api.sub_cpu_forward(inputs, output, params);
-}
-fn subBackward(inputs: [*c]?*const c_api.C_Tensor, output: *const c_api.C_Tensor, params: c_api.KernelParams) void {
-    c_api.sub_cpu_backward(inputs, output, params);
-}
-
-fn mulForward(inputs: [*c]?*const c_api.C_Tensor, output: *c_api.C_Tensor, params: c_api.KernelParams) void {
-    c_api.mul_cpu_forward(inputs, output, params);
-}
-fn mulBackward(inputs: [*c]?*const c_api.C_Tensor, output: *const c_api.C_Tensor, params: c_api.KernelParams) void {
-    c_api.mul_cpu_backward(inputs, output, params);
-}
-
-fn divForward(inputs: [*c]?*const c_api.C_Tensor, output: *c_api.C_Tensor, params: c_api.KernelParams) void {
-    c_api.div_cpu_forward(inputs, output, params);
-}
-fn divBackward(inputs: [*c]?*const c_api.C_Tensor, output: *const c_api.C_Tensor, params: c_api.KernelParams) void {
-    c_api.div_cpu_backward(inputs, output, params);
-}
-
-fn reluForward(inputs: [*c]?*const c_api.C_Tensor, output: *c_api.C_Tensor, params: c_api.KernelParams) void {
-    c_api.leaky_relu_cpu_forward(inputs, output, params);
-}
-fn reluBackward(inputs: [*c]?*const c_api.C_Tensor, output: *const c_api.C_Tensor, params: c_api.KernelParams) void {
-    c_api.leaky_relu_cpu_backward(inputs, output, params);
-}
-
-fn expForward(inputs: [*c]?*const c_api.C_Tensor, output: *c_api.C_Tensor, params: c_api.KernelParams) void {
-    c_api.exp_cpu_forward(inputs, output, params);
-}
-fn expBackward(inputs: [*c]?*const c_api.C_Tensor, output: *const c_api.C_Tensor, params: c_api.KernelParams) void {
-    c_api.exp_cpu_backward(inputs, output, params);
-}
-
-fn logForward(inputs: [*c]?*const c_api.C_Tensor, output: *c_api.C_Tensor, params: c_api.KernelParams) void {
-    c_api.log_cpu_forward(inputs, output, params);
-}
-fn logBackward(inputs: [*c]?*const c_api.C_Tensor, output: *const c_api.C_Tensor, params: c_api.KernelParams) void {
-    c_api.log_cpu_backward(inputs, output, params);
-}
-
-fn sinForward(inputs: [*c]?*const c_api.C_Tensor, output: *c_api.C_Tensor, params: c_api.KernelParams) void {
-    c_api.sin_cpu_forward(inputs, output, params);
-}
-fn sinBackward(inputs: [*c]?*const c_api.C_Tensor, output: *const c_api.C_Tensor, params: c_api.KernelParams) void {
-    c_api.sin_cpu_backward(inputs, output, params);
-}
-
-fn cosForward(inputs: [*c]?*const c_api.C_Tensor, output: *c_api.C_Tensor, params: c_api.KernelParams) void {
-    c_api.cos_cpu_forward(inputs, output, params);
-}
-fn cosBackward(inputs: [*c]?*const c_api.C_Tensor, output: *const c_api.C_Tensor, params: c_api.KernelParams) void {
-    c_api.cos_cpu_backward(inputs, output, params);
-}
-
-fn absForward(inputs: [*c]?*const c_api.C_Tensor, output: *c_api.C_Tensor, params: c_api.KernelParams) void {
-    c_api.abs_cpu_forward(inputs, output, params);
-}
-fn absBackward(inputs: [*c]?*const c_api.C_Tensor, output: *const c_api.C_Tensor, params: c_api.KernelParams) void {
-    c_api.abs_cpu_backward(inputs, output, params);
-}
-
-fn negForward(inputs: [*c]?*const c_api.C_Tensor, output: *c_api.C_Tensor, params: c_api.KernelParams) void {
-    c_api.neg_cpu_forward(inputs, output, params);
-}
-fn negBackward(inputs: [*c]?*const c_api.C_Tensor, output: *const c_api.C_Tensor, params: c_api.KernelParams) void {
-    c_api.neg_cpu_backward(inputs, output, params);
 }

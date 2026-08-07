@@ -21,6 +21,26 @@ fn addCSources(mod: *std.Build.Module, b: *std.Build, cflags: []const []const u8
     mod.linkSystemLibrary("omp", .{});
 }
 
+const cuda_objs = &[_][]const u8{
+    "src/core/arena_cuda.cu.o",
+    "src/kernels/cuda/binary_ops.cu.o",
+    "src/kernels/cuda/conv2d.cu.o",
+    "src/kernels/cuda/conv_relu.cu.o",
+    "src/kernels/cuda/cuda_iter_init.cu.o",
+    "src/kernels/cuda/cuda_pack.cu.o",
+    "src/kernels/cuda/cuda_tensor_init.cu.o",
+    "src/kernels/cuda/matmul.cu.o",
+    "src/kernels/cuda/matmul_bias_relu.cu.o",
+    "src/kernels/cuda/matmul_relu.cu.o",
+    "src/kernels/cuda/reduce_ops.cu.o",
+    "src/kernels/cuda/shape_ops_cuda.cu.o",
+    "src/kernels/cuda/unary_ops.cu.o",
+    "src/optimizers/cuda/adam.cu.o",
+    "src/optimizers/cuda/adamw.cu.o",
+    "src/optimizers/cuda/sgd.cu.o",
+    "src/optimizers/cuda/zero_grad.cu.o",
+};
+
 pub fn build(b: *std.Build) void {
     const cflags = &.{ "-O3", "-march=native", "-fopenmp" };
 
@@ -50,6 +70,14 @@ pub fn build(b: *std.Build) void {
     });
     b.installArtifact(exe);
 
+    // Link CUDA runtime and pre-compiled kernels to executable
+    exe_mod.addLibraryPath(.{ .cwd_relative = "/opt/cuda/lib64" });
+    exe_mod.linkSystemLibrary("cudart", .{});
+    exe_mod.linkSystemLibrary("c++", .{});
+    for (cuda_objs) |obj| {
+        exe_mod.addObjectFile(b.path(obj));
+    }
+
     const run_exe = b.addRunArtifact(exe);
     const run_step = b.step("run", "Run the framework");
     run_step.dependOn(&run_exe.step);
@@ -68,4 +96,12 @@ pub fn build(b: *std.Build) void {
     });
     const run_unit_tests = b.addRunArtifact(unit_tests);
     test_step.dependOn(&run_unit_tests.step);
+
+    // Link CUDA runtime and pre-compiled kernels to tests
+    test_mod.addLibraryPath(.{ .cwd_relative = "/opt/cuda/lib64" });
+    test_mod.linkSystemLibrary("cudart", .{});
+    test_mod.linkSystemLibrary("c++", .{});
+    for (cuda_objs) |obj| {
+        test_mod.addObjectFile(b.path(obj));
+    }
 }

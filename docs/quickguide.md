@@ -1,4 +1,4 @@
-# Plast Documentation Guide
+# Plast Technical Documentation
 
 Welcome to the Plast technical documentation. This sitemap indexes the architecture, design patterns, and programming interfaces of the Plast deep learning engine.
 
@@ -6,32 +6,33 @@ Welcome to the Plast technical documentation. This sitemap indexes the architect
 
 ## 1. Documentation Index
 
-* **[Getting Started](./getting_started.md)**: Environment setup, compiling the Python bindings, and writing a model training script.
-* **[Engine Architecture](./architecture.md)**: Deep dive into the custom memory Arenas (persistent vs. transient), strided tensor layouts, DAG autograd traversal, and the graph scheduler.
-* **[Python API Reference](./python_api.md)**: Classes, methods, optimizer options, dataloaders, and experiment tracking APIs.
-* **[C API Guide](./c_api.md)**: Working with memory pools, creating tensors, creating nodes, running schedule passes, and compiling/linking standalone binaries in C.
-* **[Adding Custom Kernels & Fusions](./custom_kernels.md)**: Developer guide for registering custom CPU (AVX) and CUDA (sm_80+) kernels, and writing manual operator fusions in the scheduler.
+* 🚀 **[Getting Started](./getting_started.md)**: Environment setup, compiling Python bindings, and training a simple XOR MLP model.
+* 🏗️ **[Engine Architecture](./architecture.md)**: Deep dive into the custom memory Arenas (persistent vs. transient), strided tensor layouts, DAG autograd traversal, and the graph scheduler.
+* 🐍 **[Python API Reference](./python_api.md)**: Detailed classes, factory functions, mathematical operators, modules, optimizers, and schedulers in the python frontend.
+* 🔌 **[C API Guide](./c_api.md)**: Working with memory pools, creating tensors, creating nodes, running schedule passes, and compiling/linking standalone binaries in C.
+* ⚡ **[Adding Custom Kernels & Fusions](./custom_kernels.md)**: Developer guide for registering custom CPU (AVX) and CUDA (sm_80+) kernels, and writing manual operator fusions in the scheduler.
 
 ---
 
 ## 2. Core Concepts Reference
 
-If you are new to Plast, these are the core differences to keep in mind compared to other frameworks (such as PyTorch or JAX):
+If you are new to Plast, these are the key architectural decisions that distinguish Plast from standard frameworks like PyTorch or JAX:
 
-### Arena Allocation Pattern
-To avoid system allocation overhead, Plast pre-allocates memory arenas. 
+### The Arena Allocation Pattern
+To avoid system allocation (`malloc`/`free`) overhead during training loops, Plast pre-allocates contiguous memory pools.
 ```python
-# Initialize metadata & data memory pools
 import plast as p
+
+# 1. Initialize persistent and transient pools
 p.init_arenas(device=p.Device.CUDA)
 
 # ... training step ...
 
-# Reset intermediate activations & gradients
+# 2. Reset intermediate activations & gradients
 p.reset_transient_arenas()
 ```
-* **Persistent Arena**: Model weights, optimizers, and biases.
-* **Transient Arena**: Activation outputs and gradient updates. This is cleared at the end of each training loop iteration using `reset_transient_arenas()`.
+* **Persistent Arena**: Retains model weights, biases, and running parameters.
+* **Transient Arena**: Retains intermediate outputs and backward gradients. This arena is cleared at the end of each training loop iteration using `reset_transient_arenas()`.
 
 ### Caching JIT Graph Scheduler
 The execution paths are compiled and cached on their first sweep. Tensors are realized dynamically via:

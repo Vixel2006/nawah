@@ -96,7 +96,7 @@ A complete training step using the high-level Python API, memory management, and
 import plast as p
 import numpy as np
 
-# 1. Initialize memory pools (10MB metadata, 100MB data) on the CPU or CUDA
+# 1. Initialize memory pools (default size: 64MB metadata, 512MB data)
 p.init_arenas(device=p.Device.CPU)
 
 # 2. Define a standard Sequential model
