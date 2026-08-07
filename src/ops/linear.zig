@@ -9,19 +9,13 @@ pub const Linear = enum {
 
 pub fn getLinearFn(op: Linear, dtype: u32, device: u32) Function {
     _ = dtype;
-    switch (device) {
-        0 => {},
-        1 => @panic("cuda kernels not wired"),
+    return switch (device) {
+        0 => switch (op) {
+            .matmul => .{ .forward = c_api.matmul_cpu_forward, .backward = c_api.matmul_cpu_backward },
+        },
+        1 => switch (op) {
+            .matmul => .{ .forward = c_api.matmul_cuda_forward, .backward = c_api.matmul_cuda_backward },
+        },
         else => @panic("unknown device"),
-    }
-    return switch (op) {
-        .matmul => .{ .forward = matmulForward, .backward = matmulBackward },
     };
-}
-
-fn matmulForward(inputs: [*c]?*const c_api.C_Tensor, output: *c_api.C_Tensor, params: c_api.KernelParams) void {
-    c_api.matmul_cpu_forward(inputs, output, params);
-}
-fn matmulBackward(inputs: [*c]?*const c_api.C_Tensor, output: *const c_api.C_Tensor, params: c_api.KernelParams) void {
-    c_api.matmul_cpu_backward(inputs, output, params);
 }

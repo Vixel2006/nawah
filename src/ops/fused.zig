@@ -9,24 +9,13 @@ pub const Fused = enum {
 
 pub fn getFusedFn(op: Fused, dtype: u32, device: u32) Function {
     _ = dtype;
-    switch (device) {
-        0 => {},
-        1 => @panic("cuda kernels not wired"),
+    return switch (device) {
+        0 => switch (op) {
+            .matmul_relu => .{ .forward = c_api.matmul_relu_cpu_forward, .backward = c_api.matmul_relu_cpu_backward },
+        },
+        1 => switch (op) {
+            .matmul_relu => .{ .forward = c_api.matmul_relu_cuda_forward, .backward = c_api.matmul_relu_cuda_backward },
+        },
         else => @panic("unknown device"),
-    }
-    return switch (op) {
-        .matmul_relu => .{ .forward = matmulReluForward, .backward = matmulReluBackward },
     };
-}
-
-fn matmulReluForward(inputs: [*c]?*const C_Tensor, output: *C_Tensor, params: KernelParams) void {
-    c_api.matmul_cpu_forward(inputs, output, params);
-    var relu_inputs = [_]?*const C_Tensor{output};
-    c_api.leaky_relu_cpu_forward(&relu_inputs, output, params);
-}
-
-fn matmulReluBackward(inputs: [*c]?*const C_Tensor, output: *const C_Tensor, params: KernelParams) void {
-    _ = inputs;
-    _ = output;
-    _ = params;
 }

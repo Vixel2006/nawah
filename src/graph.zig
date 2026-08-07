@@ -1,14 +1,14 @@
 const std = @import("std");
 const assert = std.debug.assert;
 const Device = @import("device.zig").Device;
-const Node = @import("node.zig").Node;
+const UOp = @import("uop.zig").UOp;
 
 pub fn Graph(comptime T: type) type {
     return struct {
         const Self = @This();
 
         gpa: std.mem.Allocator,
-        nodes: std.ArrayList(*Node(T)),
+        nodes: std.ArrayList(*UOp(T)),
 
         pub fn init(gpa: std.mem.Allocator) Self {
             return .{ .gpa = gpa, .nodes = .empty };
@@ -19,10 +19,10 @@ pub fn Graph(comptime T: type) type {
         }
 
         /// Construct the execution DAG from a root node.
-        pub fn dag(self: *Self, root: *Node(T)) void {
+        pub fn build(self: *Self, root: *UOp(T)) void {
             self.nodes.clearRetainingCapacity();
-            self.resetFlags(root);
-            self.topologicalSort(root);
+            self.reset(root);
+            self.topoSort(root);
         }
 
         pub fn forward(self: *Self) void {
@@ -48,7 +48,7 @@ pub fn Graph(comptime T: type) type {
                 if (tag_a != tag_b) return false;
                 if (a.inputs.len != b.inputs.len) return false;
                 if (a.output.ndim != b.output.ndim) return false;
-                if (a.output.device != b.output.device) return false;
+                if (a.output.dev.kind() != b.output.dev.kind()) return false;
 
                 const ndim = a.output.ndim;
                 if (!std.mem.eql(u64, a.output.shape[0..ndim], b.output.shape[0..ndim])) return false;
@@ -56,22 +56,22 @@ pub fn Graph(comptime T: type) type {
             return true;
         }
 
-        fn resetFlags(self: *Self, node: *Node(T)) void {
+        fn reset(self: *Self, node: *UOp(T)) void {
             if (!node.visited) return;
             node.visited = false;
             for (node.inputs) |input| {
                 if (input.creator) |creator| {
-                    self.resetFlags(creator);
+                    self.reset(creator);
                 }
             }
         }
 
-        fn topologicalSort(self: *Self, node: *Node(T)) void {
+        fn topoSort(self: *Self, node: *UOp(T)) void {
             node.visited = true;
             for (node.inputs) |input| {
                 if (input.creator) |creator| {
                     if (!creator.visited) {
-                        self.topologicalSort(creator);
+                        self.topoSort(creator);
                     }
                 }
             }
@@ -127,22 +127,22 @@ test "Graph dag — topological sort of a chain" {
     const ins_c = try gpa.alloc(*Tensor(f32), 1);
     ins_c[0] = t_b;
 
-    var node_a: Node(f32) = undefined;
+    var node_a: UOp(f32) = undefined;
     node_a.init(gpa, &dev, ins_a, t_a, op);
     defer gpa.free(ins_a);
 
-    var node_b: Node(f32) = undefined;
+    var node_b: UOp(f32) = undefined;
     node_b.init(gpa, &dev, ins_b, t_b, op);
     defer gpa.free(ins_b);
 
-    var node_c: Node(f32) = undefined;
+    var node_c: UOp(f32) = undefined;
     node_c.init(gpa, &dev, ins_c, t_c, op);
     defer gpa.free(ins_c);
 
     var graph = Graph(f32).init(gpa);
     defer graph.deinit();
 
-    graph.dag(&node_c);
+    graph.build(&node_c);
     try testing.expectEqual(@as(usize, 3), graph.nodes.items.len);
     try testing.expectEqual(&node_a, graph.nodes.items[0]);
     try testing.expectEqual(&node_b, graph.nodes.items[1]);
@@ -174,21 +174,21 @@ test "Graph eql — equal graphs" {
     const ins1 = try gpa.alloc(*Tensor(f32), 0);
     const ins2 = try gpa.alloc(*Tensor(f32), 0);
 
-    var node1: Node(f32) = undefined;
+    var node1: UOp(f32) = undefined;
     node1.init(gpa, &dev, ins1, t1, op);
     defer gpa.free(ins1);
 
-    var node2: Node(f32) = undefined;
+    var node2: UOp(f32) = undefined;
     node2.init(gpa, &dev, ins2, t2, op);
     defer gpa.free(ins2);
 
     var graph_a = Graph(f32).init(gpa);
     defer graph_a.deinit();
-    graph_a.dag(&node1);
+    graph_a.build(&node1);
 
     var graph_b = Graph(f32).init(gpa);
     defer graph_b.deinit();
-    graph_b.dag(&node2);
+    graph_b.build(&node2);
 
     try testing.expect(graph_a.eql(&graph_b));
 }
@@ -218,21 +218,21 @@ test "Graph eql — unequal graphs" {
     const ins1 = try gpa.alloc(*Tensor(f32), 0);
     const ins2 = try gpa.alloc(*Tensor(f32), 0);
 
-    var node1: Node(f32) = undefined;
+    var node1: UOp(f32) = undefined;
     node1.init(gpa, &dev, ins1, t1, op);
     defer gpa.free(ins1);
 
-    var node2: Node(f32) = undefined;
+    var node2: UOp(f32) = undefined;
     node2.init(gpa, &dev, ins2, t2, op);
     defer gpa.free(ins2);
 
     var graph_a = Graph(f32).init(gpa);
     defer graph_a.deinit();
-    graph_a.dag(&node1);
+    graph_a.build(&node1);
 
     var graph_b = Graph(f32).init(gpa);
     defer graph_b.deinit();
-    graph_b.dag(&node2);
+    graph_b.build(&node2);
 
     try testing.expect(!graph_a.eql(&graph_b));
 }

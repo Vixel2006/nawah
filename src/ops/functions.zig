@@ -1,7 +1,7 @@
 const std = @import("std");
 const Device = @import("../device.zig").Device;
 const Tensor = @import("../tensor.zig").Tensor;
-const Node = @import("../node.zig").Node;
+const UOp = @import("../uop.zig").UOp;
 const Op = @import("../op.zig").Op;
 const OpType = @import("../op.zig").OpType;
 const getFunction = @import("../op.zig").getFunction;
@@ -23,7 +23,7 @@ fn createNode(comptime T: type, gpa: std.mem.Allocator, dev: *Device, op_type: O
     const out = try gpa.create(Tensor(T));
     out.* = try Tensor(T).zeros(dev, shape, requires_grad);
 
-    var node = try gpa.create(Node(T));
+    var node = try gpa.create(UOp(T));
     node.init(gpa, dev, inputs, out, op);
     return out;
 }
@@ -168,7 +168,7 @@ pub fn sum(comptime T: type, gpa: std.mem.Allocator, x: *Tensor(T), dim: ?u64, k
     const out = try gpa.create(Tensor(T));
     out.* = try Tensor(T).zeros(dev, out_shape, false);
 
-    var node = try gpa.create(Node(T));
+    var node = try gpa.create(UOp(T));
     const ins = try gpa.alloc(*Tensor(T), 1);
     ins[0] = x;
     node.init(gpa, dev, ins, out, op);
@@ -195,7 +195,7 @@ pub fn mean(comptime T: type, gpa: std.mem.Allocator, x: *Tensor(T), dim: ?u64, 
     const out = try gpa.create(Tensor(T));
     out.* = try Tensor(T).zeros(dev, out_shape, false);
 
-    var node = try gpa.create(Node(T));
+    var node = try gpa.create(UOp(T));
     const ins = try gpa.alloc(*Tensor(T), 1);
     ins[0] = x;
     node.init(gpa, dev, ins, out, op);
@@ -222,7 +222,7 @@ pub fn max(comptime T: type, gpa: std.mem.Allocator, x: *Tensor(T), dim: ?u64, k
     const out = try gpa.create(Tensor(T));
     out.* = try Tensor(T).zeros(dev, out_shape, false);
 
-    var node = try gpa.create(Node(T));
+    var node = try gpa.create(UOp(T));
     const ins = try gpa.alloc(*Tensor(T), 1);
     ins[0] = x;
     node.init(gpa, dev, ins, out, op);
@@ -249,7 +249,7 @@ pub fn min(comptime T: type, gpa: std.mem.Allocator, x: *Tensor(T), dim: ?u64, k
     const out = try gpa.create(Tensor(T));
     out.* = try Tensor(T).zeros(dev, out_shape, false);
 
-    var node = try gpa.create(Node(T));
+    var node = try gpa.create(UOp(T));
     const ins = try gpa.alloc(*Tensor(T), 1);
     ins[0] = x;
     node.init(gpa, dev, ins, out, op);

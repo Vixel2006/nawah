@@ -35,8 +35,7 @@ pub fn Optimizer(comptime T: type) type {
             for (self.params.items) |p| {
                 if (p.grad) |g| {
                     const pd = p.data.?;
-                    const gd = g.data.?;
-                    for (pd, gd) |*val, grad_val| {
+                    for (pd, g) |*val, grad_val| {
                         val.* -= self.lr * grad_val;
                     }
                 }
@@ -46,7 +45,7 @@ pub fn Optimizer(comptime T: type) type {
         pub fn zeroGrad(self: *Self) void {
             for (self.params.items) |p| {
                 if (p.grad) |g| {
-                    @memset(g.data.?, 0);
+                    @memset(g, 0);
                 }
             }
         }

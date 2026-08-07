@@ -59,7 +59,7 @@ class DataLoader:
     def __iter__(self):
         if self.use_c_loader:
             self._c_loader.reset()
-            meta, data = get_arenas()
+            meta, data = get_arenas(self.device)
             while True:
                 batch = self._c_loader.next_batch(meta, data)
                 if batch is None:
